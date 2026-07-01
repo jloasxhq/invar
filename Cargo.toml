@@ -36,7 +36,7 @@ aes-gcm = "0.10"         # NIST SP 800-38D AES-GCM
 zeroize = "1"
 
 # Backend
-axum = "0.7"
+axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
 tower = "0.5"
 
