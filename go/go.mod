@@ -1,3 +1,3 @@
-module github.com/stablecoin-forge/stablecoin-forge/go
+module github.com/invar-mint/invar/go
 
 go 1.24

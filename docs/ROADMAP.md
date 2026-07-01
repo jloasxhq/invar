@@ -4,7 +4,7 @@ Status legend: ✅ done · 🔨 partial · ⬜ planned
 
 ## Implemented
 
-**Domain (`forge-core`)**
+**Domain (`invar-core`)**
 - ✅ Token ops: mint (peg- and allowance-gated), burn, transfer, redeem.
 - ✅ RBAC (11 roles): Admin, Minter, Burner, Pauser, Freezer, Wiper,
   ComplianceOfficer, ReserveAttestor, Deleter, SupplyAdmin, Rescuer.
@@ -17,7 +17,7 @@ Status legend: ✅ done · 🔨 partial · ⬜ planned
 - ✅ **PQC multi-signature**: M-of-N ML-DSA-65 approval for privileged operations.
 - ✅ **Capability tokens**: scoped, TTL-bounded, ML-DSA-65-signed authorization.
 
-**Crypto (`forge-crypto`)**
+**Crypto (`invar-crypto`)**
 - ✅ ML-DSA-65 (FIPS 204) provider; Argon2id KEK; canonical-JSON/HKDF-SHA3/
   AES-GCM/SHA-384 glue with golden-vector conformance.
 - ✅ **Argon2id-sealed software keystore** (Phase-0 key custody).

@@ -1,4 +1,4 @@
-# stablecoin-forge
+# Invar
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![CI](https://img.shields.io/badge/CI-fmt%20%7C%20clippy%20%7C%20test%20%7C%20FIPS-informational.svg)](.github/workflows/ci.yml)
@@ -14,14 +14,14 @@ later without rewriting business logic.
 > **Clean-room by reference.** The module decomposition and compliance operation set were
 > informed by the *publicly documented architecture* of Hashgraph's
 > [stablecoin-studio](https://github.com/hashgraph/stablecoin-studio) (Apache-2.0). **No
-> source was copied.** stablecoin-forge is ledger-agnostic and adds a PQC/FIPS layer with
+> source was copied.** invar is ledger-agnostic and adds a PQC/FIPS layer with
 > no counterpart in the reference. See [`NOTICE`](NOTICE).
 
 ## Introduction
 
 Every public-chain stablecoin inherits its signature scheme from a chain you do not
 control (secp256k1 on EVM, ed25519/ECDSA on Hedera) — none of which is post-quantum, and
-most of which is not a NIST-approved curve. stablecoin-forge inverts that: **you own every
+most of which is not a NIST-approved curve. invar inverts that: **you own every
 byte of the cryptography**, so the ledger's own signatures and attestations are
 **ML-DSA-65 (FIPS 204)** today, with a **FIPS 140-3 validated module** boundary as a
 configuration choice (Go crypto module / PKCS#11 HSM) rather than a rewrite.
@@ -58,10 +58,10 @@ configuration choice (Go crypto module / PKCS#11 HSM) rather than a rewrite.
 
 | Path | Lang | Role |
 |---|---|---|
-| `crates/forge-core` | Rust | Domain SDK: token ops, ports, roles, compliance, reserve invariant, multisig, capabilities |
-| `crates/forge-crypto` | Rust | `CryptoProvider`: ML-DSA-65, Argon2id KEK, sealed keystore, glue |
-| `crates/forge-ledger-custodial` | Rust | Custodial double-entry ledger adapter (+ file persistence) |
-| `crates/forge-backend` | Rust | axum REST API with capability-token auth |
+| `crates/invar-core` | Rust | Domain SDK: token ops, ports, roles, compliance, reserve invariant, multisig, capabilities |
+| `crates/invar-crypto` | Rust | `CryptoProvider`: ML-DSA-65, Argon2id KEK, sealed keystore, glue |
+| `crates/invar-ledger-custodial` | Rust | Custodial double-entry ledger adapter (+ file persistence) |
+| `crates/invar-backend` | Rust | axum REST API with capability-token auth |
 | `go/crypto` | Go | FIPS/glue crypto + ML-KEM-768 + FIPS-mode check |
 | `go/cli` | Go | Operator CLI at parity with the API |
 | `go/ledger-dlt` | Go | Hyperledger-Fabric / DLT adapter (stub) |
@@ -78,18 +78,18 @@ configuration choice (Go crypto module / PKCS#11 HSM) rather than a rewrite.
 
 ## Architecture
 
-Hexagonal (ports & adapters): business rules live in `forge-core` and depend only on
+Hexagonal (ports & adapters): business rules live in `invar-core` and depend only on
 `LedgerPort` (persistence) and `CryptoProvider` (signatures). Everything else is a
 replaceable adapter.
 
 ```mermaid
 flowchart TB
   subgraph Drivers
-    BE[forge-backend REST / axum]
+    BE[invar-backend REST / axum]
     CLI[go/cli]
     WEB[web dashboard]
   end
-  subgraph Core["forge-core (domain)"]
+  subgraph Core["invar-core (domain)"]
     SVC[StablecoinService]
     MS[PQC multisig]
     CAP[capability tokens]
@@ -97,9 +97,9 @@ flowchart TB
   LP[[LedgerPort]]
   CP[[CryptoProvider]]
   subgraph Adapters
-    CUST[forge-ledger-custodial]
+    CUST[invar-ledger-custodial]
     DLT["go/ledger-dlt (Fabric stub)"]
-    CRY[forge-crypto ML-DSA-65]
+    CRY[invar-crypto ML-DSA-65]
   end
   BE --> SVC
   CLI --> BE
@@ -128,8 +128,8 @@ composition ("glue") is asserted byte-for-byte in **both** Rust and Go against a
 
 ### Quick setup
 ```bash
-git clone https://github.com/stablecoin-forge/stablecoin-forge
-cd stablecoin-forge
+git clone https://github.com/invar-mint/invar
+cd invar
 cargo build                 # Rust workspace
 (cd go && go build ./...)   # Go module
 (cd web && npm ci)          # web dashboard
@@ -139,8 +139,8 @@ cargo build                 # Rust workspace
 
 ### SDK & Backend (Rust)
 ```bash
-cargo run -p forge-backend           # REST API on 127.0.0.1:8080 (dev mode)
-FORGE_BIND=0.0.0.0:8080 cargo run -p forge-backend
+cargo run -p invar-backend           # REST API on 127.0.0.1:8080 (dev mode)
+INVAR_BIND=0.0.0.0:8080 cargo run -p invar-backend
 ```
 
 ### CLI (Go, FIPS mode)
@@ -178,7 +178,7 @@ cd go && go vet ./...
 
 ## Support
 
-Open a [GitHub issue](https://github.com/stablecoin-forge/stablecoin-forge/issues) for
+Open a [GitHub issue](https://github.com/invar-mint/invar/issues) for
 questions, bugs, or feature requests. For security reports, follow
 [`SECURITY.md`](SECURITY.md) (do not open a public issue).
 

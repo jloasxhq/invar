@@ -1,5 +1,5 @@
-stablecoin-forge
-Copyright 2026 stablecoin-forge contributors
+invar
+Copyright 2026 invar contributors
 
 This product includes software developed as an original, clean-room work.
 
@@ -12,7 +12,7 @@ architecture of Hashgraph's "stablecoin-studio"
 (https://github.com/hashgraph/stablecoin-studio, Apache-2.0).
 
 No source code from stablecoin-studio was copied, adapted, or translated into
-this repository. stablecoin-forge is ledger-agnostic (stablecoin-studio targets
+this repository. invar is ledger-agnostic (stablecoin-studio targets
 the Hedera network) and adds a FIPS/PQC cryptography layer that has no
 counterpart in the reference project. This NOTICE records inspiration only and
 creates no dependency on, or endorsement by, the referenced project.

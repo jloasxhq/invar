@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use crate::account::AccountId;
 use crate::amount::Amount;
 use crate::crypto::{CryptoProvider, Signature, VerifyingKey};
-use crate::error::{ForgeError, Result};
+use crate::error::{InvarError, Result};
 use crate::ledger::LedgerPort;
 use crate::roles::Role;
 use crate::service::StablecoinService;
@@ -116,10 +116,10 @@ impl<L: LedgerPort, C: CryptoProvider> MultisigController<L, C> {
     /// sign exactly these bytes.
     pub fn preimage(&self, id: &str, request: &OperationRequest) -> Result<Vec<u8>> {
         let value = serde_json::json!({
-            "schema": "forge.multisig-op.v1",
+            "schema": "invar.multisig-op.v1",
             "op_id": id,
             "request": serde_json::to_value(request)
-                .map_err(|e| ForgeError::Serialization(e.to_string()))?,
+                .map_err(|e| InvarError::Serialization(e.to_string()))?,
         });
         self.svc.crypto().canonical_json(&value)
     }
@@ -148,21 +148,21 @@ impl<L: LedgerPort, C: CryptoProvider> MultisigController<L, C> {
     /// the signature must verify over the operation preimage.
     pub fn approve(&self, id: &str, signer: &VerifyingKey, signature: &Signature) -> Result<()> {
         if !self.policy.is_authorized(signer) {
-            return Err(ForgeError::UnknownSigner);
+            return Err(InvarError::UnknownSigner);
         }
         let preimage = self.preimage_for(id)?;
         if !self.svc.crypto().verify(signer, &preimage, signature) {
-            return Err(ForgeError::BadSignature);
+            return Err(InvarError::BadSignature);
         }
         let mut pending = self.pending.lock().unwrap();
         let op = pending
             .get_mut(id)
-            .ok_or_else(|| ForgeError::UnknownPendingOp(id.to_string()))?;
+            .ok_or_else(|| InvarError::UnknownPendingOp(id.to_string()))?;
         if op.status == OpStatus::Executed {
-            return Err(ForgeError::AlreadyExecuted(id.to_string()));
+            return Err(InvarError::AlreadyExecuted(id.to_string()));
         }
         if op.approvals.iter().any(|a| &a.signer == signer) {
-            return Err(ForgeError::DuplicateApproval);
+            return Err(InvarError::DuplicateApproval);
         }
         op.approvals.push(Approval {
             signer: signer.clone(),
@@ -177,13 +177,13 @@ impl<L: LedgerPort, C: CryptoProvider> MultisigController<L, C> {
             let mut pending = self.pending.lock().unwrap();
             let op = pending
                 .get_mut(id)
-                .ok_or_else(|| ForgeError::UnknownPendingOp(id.to_string()))?;
+                .ok_or_else(|| InvarError::UnknownPendingOp(id.to_string()))?;
             if op.status == OpStatus::Executed {
-                return Err(ForgeError::AlreadyExecuted(id.to_string()));
+                return Err(InvarError::AlreadyExecuted(id.to_string()));
             }
             let have = op.approval_count();
             if have < self.policy.threshold {
-                return Err(ForgeError::QuorumNotMet {
+                return Err(InvarError::QuorumNotMet {
                     have,
                     need: self.policy.threshold,
                 });
@@ -228,7 +228,7 @@ impl<L: LedgerPort, C: CryptoProvider> MultisigController<L, C> {
             .unwrap()
             .get(id)
             .cloned()
-            .ok_or_else(|| ForgeError::UnknownPendingOp(id.to_string()))
+            .ok_or_else(|| InvarError::UnknownPendingOp(id.to_string()))
     }
 
     pub fn pending_ops(&self) -> Vec<PendingOp> {

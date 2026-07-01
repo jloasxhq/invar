@@ -6,7 +6,7 @@
 //! HSM assumes custody.
 
 use argon2::{Algorithm, Argon2, Params, Version};
-use forge_core::error::{ForgeError, Result};
+use invar_core::error::{InvarError, Result};
 use zeroize::Zeroize;
 
 /// RFC 9106 "second recommended" option, tuned for interactive use:
@@ -19,19 +19,19 @@ pub const P_COST: u32 = 1;
 /// Deterministic for fixed inputs, so a keystore sealed under it can be reopened.
 pub fn derive_kek(password: &[u8], salt: &[u8], out_len: usize) -> Result<Vec<u8>> {
     if salt.len() < 8 {
-        return Err(ForgeError::Crypto(
+        return Err(InvarError::Crypto(
             "Argon2id salt must be >= 8 bytes".into(),
         ));
     }
     let params = Params::new(M_COST_KIB, T_COST, P_COST, Some(out_len))
-        .map_err(|e| ForgeError::Crypto(format!("argon2 params: {e}")))?;
+        .map_err(|e| InvarError::Crypto(format!("argon2 params: {e}")))?;
     let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     let mut out = vec![0u8; out_len];
     argon
         .hash_password_into(password, salt, &mut out)
         .map_err(|e| {
             out.zeroize();
-            ForgeError::Crypto(format!("argon2 derive: {e}"))
+            InvarError::Crypto(format!("argon2 derive: {e}"))
         })?;
     Ok(out)
 }

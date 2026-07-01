@@ -1,28 +1,28 @@
-# stablecoin-forge — backend service (HTTPS-only, zero-trust by default).
+# invar — backend service (HTTPS-only, zero-trust by default).
 # Local:   docker compose up --build
 # Portainer: deploy as a Stack (build from repo, or use a prebuilt image).
 services:
-  forge-backend:
+  invar-backend:
     build:
       context: .
       args:
         # Hybrid post-quantum TLS (X25519MLKEM768). Set to "" for classical ring TLS.
         CARGO_FEATURES: "pqc-tls"
-    image: stablecoin-forge:0.1.0
-    container_name: stablecoin-forge
+    image: invar:0.1.0
+    container_name: invar
     ports:
       - "8443:8443"
     environment:
-      FORGE_BIND: "0.0.0.0:8443"
-      FORGE_ADMIN: "issuer"
+      INVAR_BIND: "0.0.0.0:8443"
+      INVAR_ADMIN: "issuer"
       # Zero-trust: privileged endpoints require a capability token. Only set false
       # for local development.
-      FORGE_REQUIRE_CAPS: "true"
+      INVAR_REQUIRE_CAPS: "true"
       # Provide real TLS certs in production by mounting them and setting these:
-      # FORGE_TLS_CERT: "/etc/forge/tls/cert.pem"
-      # FORGE_TLS_KEY: "/etc/forge/tls/key.pem"
+      # INVAR_TLS_CERT: "/etc/invar/tls/cert.pem"
+      # INVAR_TLS_KEY: "/etc/invar/tls/key.pem"
     # volumes:
-    #   - ./certs:/etc/forge/tls:ro
+    #   - ./certs:/etc/invar/tls:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fsSk", "https://127.0.0.1:8443/health"]

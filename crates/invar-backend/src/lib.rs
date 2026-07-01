@@ -1,4 +1,4 @@
-//! # forge-backend
+//! # invar-backend
 //!
 //! HTTPS REST API over the domain service, **zero-trust by default**: privileged
 //! endpoints require a valid **ML-DSA-65 capability token** (`AuthCaller`), verified
@@ -21,13 +21,13 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 
-use forge_core::multisig::{MultisigController, MultisigPolicy, OperationRequest};
-use forge_core::{
-    AccountId, Allowance, Amount, CryptoProvider, ForgeError, KycStatus, ManualReserveOracle, Role,
+use invar_core::multisig::{MultisigController, MultisigPolicy, OperationRequest};
+use invar_core::{
+    AccountId, Allowance, Amount, CryptoProvider, InvarError, KycStatus, ManualReserveOracle, Role,
     SigningKey, StablecoinService, TokenConfig, VerifyingKey,
 };
-use forge_crypto::FipsPqcProvider;
-use forge_ledger_custodial::CustodialLedger;
+use invar_crypto::FipsPqcProvider;
+use invar_ledger_custodial::CustodialLedger;
 
 pub type Ctrl = MultisigController<Ledger, FipsPqcProvider>;
 
@@ -72,7 +72,7 @@ pub struct AppState {
 impl AppState {
     /// Dev-mode state: privileged endpoints accept the bootstrap admin without a
     /// capability token.
-    pub fn new(config: TokenConfig, admin: impl Into<String>) -> Result<Self, ForgeError> {
+    pub fn new(config: TokenConfig, admin: impl Into<String>) -> Result<Self, InvarError> {
         Self::with_caps(config, admin, false)
     }
 
@@ -81,7 +81,7 @@ impl AppState {
         config: TokenConfig,
         admin: impl Into<String>,
         require_caps: bool,
-    ) -> Result<Self, ForgeError> {
+    ) -> Result<Self, InvarError> {
         let admin = AccountId::new(admin);
         let svc = Arc::new(StablecoinService::new(
             config,
@@ -142,7 +142,7 @@ impl AuthCaller {
         if self.scopes.iter().any(|s| s == "*" || s == scope) {
             Ok(())
         } else {
-            Err(ApiError(ForgeError::InsufficientScope(scope.to_string())))
+            Err(ApiError(InvarError::InsufficientScope(scope.to_string())))
         }
     }
 }
@@ -162,25 +162,25 @@ impl axum::extract::FromRequestParts<AppState> for AuthCaller {
         parts: &mut axum::http::request::Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        if let Some(hv) = parts.headers.get("x-forge-capability") {
+        if let Some(hv) = parts.headers.get("x-invar-capability") {
             let token = hv.to_str().map_err(|_| {
-                ApiError(ForgeError::MalformedCapability("non-ascii header".into()))
+                ApiError(InvarError::MalformedCapability("non-ascii header".into()))
             })?;
             // Compact token: hex(capability-json) "." hex(signature).
             let (cap_hex, sig_hex) = token.split_once('.').ok_or_else(|| {
-                ApiError(ForgeError::MalformedCapability("expected cap.sig".into()))
+                ApiError(InvarError::MalformedCapability("expected cap.sig".into()))
             })?;
             let cap_bytes = hex::decode(cap_hex)
-                .map_err(|_| ApiError(ForgeError::MalformedCapability("invalid hex".into())))?;
-            let capability: forge_core::Capability = serde_json::from_slice(&cap_bytes)
-                .map_err(|e| ApiError(ForgeError::MalformedCapability(e.to_string())))?;
+                .map_err(|_| ApiError(InvarError::MalformedCapability("invalid hex".into())))?;
+            let capability: invar_core::Capability = serde_json::from_slice(&cap_bytes)
+                .map_err(|e| ApiError(InvarError::MalformedCapability(e.to_string())))?;
             let sig_bytes = hex::decode(sig_hex)
-                .map_err(|_| ApiError(ForgeError::MalformedCapability("invalid hex".into())))?;
-            let signed = forge_core::SignedCapability {
+                .map_err(|_| ApiError(InvarError::MalformedCapability("invalid hex".into())))?;
+            let signed = invar_core::SignedCapability {
                 capability,
-                signature: forge_core::Signature(sig_bytes),
+                signature: invar_core::Signature(sig_bytes),
             };
-            let cap = forge_core::capability::verify(
+            let cap = invar_core::capability::verify(
                 state.svc.crypto(),
                 &state.issuer_vk,
                 &signed,
@@ -192,7 +192,7 @@ impl axum::extract::FromRequestParts<AppState> for AuthCaller {
                 scopes: cap.scopes.clone(),
             })
         } else if state.require_caps {
-            Err(ApiError(ForgeError::Unauthorized(
+            Err(ApiError(InvarError::Unauthorized(
                 "capability token required".into(),
             )))
         } else {
@@ -205,15 +205,15 @@ impl axum::extract::FromRequestParts<AppState> for AuthCaller {
 }
 
 /// Map domain errors to HTTP responses.
-pub struct ApiError(ForgeError);
-impl From<ForgeError> for ApiError {
-    fn from(e: ForgeError) -> Self {
+pub struct ApiError(InvarError);
+impl From<InvarError> for ApiError {
+    fn from(e: InvarError) -> Self {
         ApiError(e)
     }
 }
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        use ForgeError::*;
+        use InvarError::*;
         let status = match &self.0 {
             Unauthorized(_) => StatusCode::FORBIDDEN,
             NotRegistered(_) | NotVerified(_) | AmountOverflow | InsufficientBalance
@@ -392,7 +392,7 @@ async fn health() -> &'static str {
 }
 
 /// DEV issuance endpoint (stands in for an IdP). Issues an ML-DSA-signed capability
-/// token; returns it hex-encoded for the `X-Forge-Capability` header.
+/// token; returns it hex-encoded for the `X-Invar-Capability` header.
 async fn issue_token(
     State(s): State<AppState>,
     Json(req): Json<TokenReq>,
@@ -403,18 +403,18 @@ async fn issue_token(
         now_unix() + req.ttl_secs
     };
     let nonce = format!("{}:{}", now_unix(), req.subject);
-    let cap = forge_core::capability::Capability::new(
+    let cap = invar_core::capability::Capability::new(
         AccountId::new(req.subject),
         req.scopes,
         not_after,
         nonce,
     );
     let signed =
-        forge_core::capability::issue(s.svc.crypto(), &s.issuer_sk, cap).map_err(ApiError)?;
+        invar_core::capability::issue(s.svc.crypto(), &s.issuer_sk, cap).map_err(ApiError)?;
     // Compact token: hex(capability-json) "." hex(signature). Avoids serializing the
     // 3309-byte ML-DSA signature as a JSON number array (which bloated the header).
     let cap_json = serde_json::to_vec(&signed.capability)
-        .map_err(|e| ApiError(ForgeError::Serialization(e.to_string())))?;
+        .map_err(|e| ApiError(InvarError::Serialization(e.to_string())))?;
     let token = format!(
         "{}.{}",
         hex::encode(&cap_json),
@@ -542,7 +542,7 @@ async fn attest(
     )?;
     serde_json::to_value(&att)
         .map(Json)
-        .map_err(|e| ApiError(ForgeError::Serialization(e.to_string())))
+        .map_err(|e| ApiError(InvarError::Serialization(e.to_string())))
 }
 
 async fn burn(
@@ -577,7 +577,7 @@ async fn grant_role(
 ) -> Result<StatusCode, ApiError> {
     caller.require("admin")?;
     let role = parse_role(&req.role).ok_or_else(|| {
-        ApiError(ForgeError::InvalidState(format!(
+        ApiError(InvarError::InvalidState(format!(
             "unknown role {}",
             req.role
         )))
@@ -595,7 +595,7 @@ async fn revoke_role(
 ) -> Result<StatusCode, ApiError> {
     caller.require("admin")?;
     let role = parse_role(&req.role).ok_or_else(|| {
-        ApiError(ForgeError::InvalidState(format!(
+        ApiError(InvarError::InvalidState(format!(
             "unknown role {}",
             req.role
         )))
@@ -620,7 +620,7 @@ async fn create_hold(
     )?;
     serde_json::to_value(hold)
         .map(Json)
-        .map_err(|e| ApiError(ForgeError::Serialization(e.to_string())))
+        .map_err(|e| ApiError(InvarError::Serialization(e.to_string())))
 }
 
 async fn execute_hold(
@@ -645,7 +645,7 @@ async fn list_holds(State(s): State<AppState>) -> Result<Json<serde_json::Value>
     let holds = s.svc.holds()?;
     serde_json::to_value(holds)
         .map(Json)
-        .map_err(|e| ApiError(ForgeError::Serialization(e.to_string())))
+        .map_err(|e| ApiError(InvarError::Serialization(e.to_string())))
 }
 
 async fn set_metadata(
@@ -727,7 +727,7 @@ async fn multisig_policy(State(s): State<AppState>) -> Json<serde_json::Value> {
 async fn list_pending(State(s): State<AppState>) -> Result<Json<serde_json::Value>, ApiError> {
     serde_json::to_value(s.ctrl.pending_ops())
         .map(Json)
-        .map_err(|e| ApiError(ForgeError::Serialization(e.to_string())))
+        .map_err(|e| ApiError(InvarError::Serialization(e.to_string())))
 }
 
 async fn propose(
@@ -756,7 +756,7 @@ async fn approve(
     let (vk, sk) = s
         .signers
         .get(req.signer_index)
-        .ok_or_else(|| ApiError(ForgeError::InvalidState("signer_index out of range".into())))?;
+        .ok_or_else(|| ApiError(InvarError::InvalidState("signer_index out of range".into())))?;
     let preimage = s.ctrl.preimage_for(&id)?;
     let sig = s.svc.crypto().sign(sk, &preimage)?;
     s.ctrl.approve(&id, vk, &sig)?;
@@ -777,7 +777,7 @@ async fn entries(State(s): State<AppState>) -> Result<Json<serde_json::Value>, A
     let e = s.svc.entries()?;
     serde_json::to_value(e)
         .map(Json)
-        .map_err(|e| ApiError(ForgeError::Serialization(e.to_string())))
+        .map_err(|e| ApiError(InvarError::Serialization(e.to_string())))
 }
 
 #[cfg(test)]
@@ -1095,7 +1095,7 @@ mod tests {
             .uri(uri)
             .header("content-type", "application/json");
         if let Some(t) = token {
-            rb = rb.header("x-forge-capability", t);
+            rb = rb.header("x-invar-capability", t);
         }
         let req = rb.body(Body::from(body.to_string())).unwrap();
         let resp = app.clone().oneshot(req).await.unwrap();

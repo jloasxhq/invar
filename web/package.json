@@ -1,9 +1,9 @@
 {
-  "name": "stablecoin-forge-web",
+  "name": "invar-web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Operator dashboard for stablecoin-forge (React + Vite + TypeScript).",
+  "description": "Operator dashboard for invar (React + Vite + TypeScript).",
   "license": "Apache-2.0",
   "scripts": {
     "dev": "vite",

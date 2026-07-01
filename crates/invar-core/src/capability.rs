@@ -9,7 +9,7 @@
 
 use crate::account::AccountId;
 use crate::crypto::{CryptoProvider, Signature, SigningKey, VerifyingKey};
-use crate::error::{ForgeError, Result};
+use crate::error::{InvarError, Result};
 use serde::{Deserialize, Serialize};
 
 /// The signed body of a capability. Field set is fixed because it forms the
@@ -25,7 +25,7 @@ pub struct Capability {
 }
 
 impl Capability {
-    pub const SCHEMA: &'static str = "forge.capability.v1";
+    pub const SCHEMA: &'static str = "invar.capability.v1";
 
     pub fn new(
         subject: AccountId,
@@ -92,14 +92,14 @@ pub fn verify<'a>(
     now_unix: u64,
 ) -> Result<&'a Capability> {
     if signed.capability.schema != Capability::SCHEMA {
-        return Err(ForgeError::MalformedCapability("unexpected schema".into()));
+        return Err(InvarError::MalformedCapability("unexpected schema".into()));
     }
     let preimage = crypto.canonical_json(&signed.capability.to_json())?;
     if !crypto.verify(issuer_vk, &preimage, &signed.signature) {
-        return Err(ForgeError::BadSignature);
+        return Err(InvarError::BadSignature);
     }
     if signed.capability.is_expired(now_unix) {
-        return Err(ForgeError::CapabilityExpired);
+        return Err(InvarError::CapabilityExpired);
     }
     Ok(&signed.capability)
 }
@@ -114,7 +114,7 @@ pub fn verify_scope<'a>(
 ) -> Result<&'a Capability> {
     let cap = verify(crypto, issuer_vk, signed, now_unix)?;
     if !cap.allows(scope) {
-        return Err(ForgeError::InsufficientScope(scope.to_string()));
+        return Err(InvarError::InsufficientScope(scope.to_string()));
     }
     Ok(cap)
 }

@@ -6,8 +6,8 @@
 //! Per project policy, key wrapping uses only an Argon2id KEK — never a reversible
 //! encoding.
 
-use forge_core::crypto::SigningKey;
-use forge_core::error::{ForgeError, Result};
+use invar_core::crypto::SigningKey;
+use invar_core::error::{InvarError, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::glue::{aes256gcm_open, aes256gcm_seal};
@@ -51,7 +51,7 @@ pub fn seal_signing_key(
 pub fn unseal_signing_key(sealed: &SealedKey, passphrase: &[u8]) -> Result<SigningKey> {
     let kek = derive_kek(passphrase, &sealed.salt, 32)?;
     let plaintext = aes256gcm_open(&kek, &sealed.nonce, b"", &sealed.ciphertext)
-        .map_err(|_| ForgeError::Crypto("keystore unseal failed (wrong passphrase?)".into()))?;
+        .map_err(|_| InvarError::Crypto("keystore unseal failed (wrong passphrase?)".into()))?;
     Ok(SigningKey(plaintext))
 }
 
@@ -73,7 +73,7 @@ mod hex_bytes {
 mod tests {
     use super::*;
     use crate::provider::FipsPqcProvider;
-    use forge_core::crypto::CryptoProvider;
+    use invar_core::crypto::CryptoProvider;
 
     #[test]
     fn seal_unseal_roundtrip_and_sign() {

@@ -1,5 +1,5 @@
 [package]
-name = "forge-core"
+name = "invar-core"
 description = "Ledger-agnostic stablecoin domain SDK: token operations, ports, roles, compliance, reserve invariant."
 version.workspace = true
 edition.workspace = true

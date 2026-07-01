@@ -1,7 +1,7 @@
-//! # forge-crypto
+//! # invar-crypto
 //!
-//! The FIPS/PQC [`CryptoProvider`](forge_core::crypto::CryptoProvider) adapter for
-//! stablecoin-forge:
+//! The FIPS/PQC [`CryptoProvider`](invar_core::crypto::CryptoProvider) adapter for
+//! invar:
 //!
 //! - **Signatures**: ML-DSA-65 (NIST FIPS 204) via `fips204` (KAT-locked).
 //! - **KEK**: Argon2id (RFC 9106) for sealing the software keystore until an HSM

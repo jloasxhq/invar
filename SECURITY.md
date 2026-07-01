@@ -2,7 +2,7 @@
 
 ## Status
 
-stablecoin-forge is an early-stage framework. It has **not** been independently
+invar is an early-stage framework. It has **not** been independently
 audited or penetration-tested, and it is **not** a validated FIPS 140-3
 cryptographic module (see [`docs/FIPS-PQC.md`](docs/FIPS-PQC.md) for the exact
 posture). Do not deploy it to hold real value without a security review and

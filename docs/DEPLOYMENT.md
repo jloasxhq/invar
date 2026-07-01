@@ -20,19 +20,19 @@ CMVP-validated module.
 
 See [`.env.example`](../.env.example). Key variables:
 
-- `FORGE_BIND` (default `0.0.0.0:8443`) — TLS listen address.
-- `FORGE_REQUIRE_CAPS` (default `true`) — zero-trust; set `false` only for dev.
-- `FORGE_TLS_CERT` / `FORGE_TLS_KEY` — PEM paths. **Required.** If unset, the
+- `INVAR_BIND` (default `0.0.0.0:8443`) — TLS listen address.
+- `INVAR_REQUIRE_CAPS` (default `true`) — zero-trust; set `false` only for dev.
+- `INVAR_TLS_CERT` / `INVAR_TLS_KEY` — PEM paths. **Required.** If unset, the
   container entrypoint and `scripts/run.sh` auto-generate a **self-signed** pair.
-  **Provide real certificates in production** (mount them, e.g. `./certs:/etc/forge/tls:ro`).
-- `FORGE_ADMIN`, `FORGE_TOKEN_NAME/SYMBOL/DECIMALS` — identity/token config.
+  **Provide real certificates in production** (mount them, e.g. `./certs:/etc/invar/tls:ro`).
+- `INVAR_ADMIN`, `INVAR_TOKEN_NAME/SYMBOL/DECIMALS` — identity/token config.
 
 ## Run
 
 ```bash
 docker compose up --build          # builds pqc-tls image, serves on :8443
 # or classical:
-docker build --build-arg CARGO_FEATURES="" -t stablecoin-forge:0.1.0 .
+docker build --build-arg CARGO_FEATURES="" -t invar:0.1.0 .
 ```
 
 Verify the hybrid PQC group is negotiated:
@@ -51,11 +51,11 @@ TOKEN=$(curl -sk -X POST https://HOST:8443/auth/token \
   -H 'content-type: application/json' \
   -d '{"subject":"issuer","scopes":["*"],"ttl_secs":300}' | jq -r .token)
 
-curl -sk -X POST https://HOST:8443/mint -H "x-forge-capability: $TOKEN" \
+curl -sk -X POST https://HOST:8443/mint -H "x-invar-capability: $TOKEN" \
   -H 'content-type: application/json' -d '{"to":"acme","amount":100}'
 ```
 
-The Go CLI: `forge-cli -url https://HOST:8443 -insecure token` (drop `-insecure`
+The Go CLI: `invar-cli -url https://HOST:8443 -insecure token` (drop `-insecure`
 with real certs).
 
 > `/auth/token` is a **dev issuance stub**. In production the token issuer is an
@@ -101,7 +101,7 @@ Direct-to-container (no proxy) works out of the box — the backend accepts the 
 ## Production checklist
 
 - [ ] Mount **real TLS certificates** (don't ship the self-signed pair).
-- [ ] Keep `FORGE_REQUIRE_CAPS=true`; issue capabilities from an external IdP.
+- [ ] Keep `INVAR_REQUIRE_CAPS=true`; issue capabilities from an external IdP.
 - [ ] Move the reserve-attestor and capability-issuer keys to an **HSM/KMS**
       (the `CryptoProvider` PKCS#11 seam — see [`FIPS-PQC.md`](FIPS-PQC.md)).
 - [ ] Build with `--features fips` where a CMVP-validated module is required.

@@ -1,7 +1,7 @@
 # Rust
 /target
 **/target
-# Cargo.lock IS committed: this workspace builds a binary (forge-backend), and a
+# Cargo.lock IS committed: this workspace builds a binary (invar-backend), and a
 # committed lockfile gives reproducible builds and lets Dependabot/OSV scan pinned deps.
 
 # Go

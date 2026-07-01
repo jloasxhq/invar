@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ForgeClient, LedgerEntry, TokenInfo } from "./api";
+import { InvarClient, LedgerEntry, TokenInfo } from "./api";
 
 const cardStyle: React.CSSProperties = {
   background: "#171a21",
@@ -31,7 +31,7 @@ export default function App() {
   const [token, setToken] = useState<TokenInfo | null>(null);
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
 
-  const client = useMemo(() => new ForgeClient(base), [base]);
+  const client = useMemo(() => new InvarClient(base), [base]);
 
   const run = useCallback(
     async (label: string, fn: () => Promise<unknown>) => {
@@ -67,7 +67,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", margin: "2rem", color: "#e6e6e6", background: "#0f1115" }}>
       <h1 style={{ fontSize: "1.35rem" }}>
-        stablecoin-forge <span style={{ color: "#9aa4b2", fontSize: "1rem" }}>operator dashboard</span>
+        invar <span style={{ color: "#9aa4b2", fontSize: "1rem" }}>operator dashboard</span>
       </h1>
 
       <div style={cardStyle}>

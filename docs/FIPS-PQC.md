@@ -7,9 +7,9 @@ oversold. Read it before describing the project as "FIPS" anything.
 
 | Purpose | Algorithm | Standard | Where |
 |---|---|---|---|
-| Signatures (attestations, future checkpoints) | **ML-DSA-65** | FIPS 204 | `forge-crypto` (`fips204` crate, KAT-locked) |
+| Signatures (attestations, future checkpoints) | **ML-DSA-65** | FIPS 204 | `invar-crypto` (`fips204` crate, KAT-locked) |
 | Key establishment (hybrid transport) | **ML-KEM-768** | FIPS 203 | `go/crypto` (Go std `crypto/mlkem`) |
-| KEK / key wrapping | **Argon2id** | RFC 9106 | `forge-crypto::kek` |
+| KEK / key wrapping | **Argon2id** | RFC 9106 | `invar-crypto::kek` |
 | Content fingerprint | **SHA-384** | FIPS 180-4 | both providers |
 | KDF | **HKDF / SHA3-256** | RFC 5869 / FIPS 202 | both providers |
 | AEAD (keystore-at-rest, framing) | **AES-256-GCM** | SP 800-38D | both providers |
@@ -63,9 +63,9 @@ cd go && GODEBUG=fips140=on go test ./...
 ## Transport security (HTTPS-only, zero-trust)
 
 The backend is **HTTPS-only** — there is no plaintext listener, and it refuses to
-start without a certificate (`FORGE_TLS_CERT`/`FORGE_TLS_KEY`). It is **zero-trust by
+start without a certificate (`INVAR_TLS_CERT`/`INVAR_TLS_KEY`). It is **zero-trust by
 default**: privileged endpoints require a valid **ML-DSA-65 capability token**
-(`FORGE_REQUIRE_CAPS=true`), so there is no ambient trusted caller.
+(`INVAR_REQUIRE_CAPS=true`), so there is no ambient trusted caller.
 
 TLS provider is selectable at build time:
 
@@ -89,13 +89,13 @@ implementing it against a PKCS#11 token — no domain/backend changes:
 // Sketch — a PKCS#11-backed provider (e.g. via the `cryptoki` crate).
 struct Pkcs11Provider { session: /* cryptoki session */, key_label: String }
 
-impl forge_core::crypto::CryptoProvider for Pkcs11Provider {
+impl invar_core::crypto::CryptoProvider for Pkcs11Provider {
     fn signature_algorithm(&self) -> &'static str { "ML-DSA-65" } // or HSM's alg
     fn sign(&self, _sk: &SigningKey, msg: &[u8]) -> Result<Signature> {
         // C_Sign against the non-extractable key in the HSM slot
     }
     fn verify(&self, vk: &VerifyingKey, msg: &[u8], sig: &Signature) -> bool { /* ... */ }
-    // canonical_json / fingerprint reuse forge-crypto::glue
+    // canonical_json / fingerprint reuse invar-crypto::glue
     fn generate_keypair(&self) -> Result<(VerifyingKey, SigningKey)> {
         // C_GenerateKeyPair with CKA_EXTRACTABLE=false
     }
@@ -105,7 +105,7 @@ impl forge_core::crypto::CryptoProvider for Pkcs11Provider {
 Custody path:
 
 - **Phase 0 (now):** software keys sealed at rest with the Argon2id keystore
-  (`forge-crypto::keystore`); no plaintext key on disk.
+  (`invar-crypto::keystore`); no plaintext key on disk.
 - **Phase 1 (HSM acquired):** swap in the PKCS#11 provider; keys are **generated
   inside the HSM (non-extractable)** — a re-key ceremony, not a code change. Until an
   HSM ships PQC firmware, the HSM holds the classical/wrapping keys while ML-DSA stays

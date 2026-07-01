@@ -17,25 +17,25 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 COPY conformance ./conformance
 
-RUN cargo build --release -p forge-backend ${CARGO_FEATURES:+--features "$CARGO_FEATURES"}
+RUN cargo build --release -p invar-backend ${CARGO_FEATURES:+--features "$CARGO_FEATURES"}
 
 # ---- runtime stage ----
 FROM debian:bookworm-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl openssl \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd -r -u 10001 -s /usr/sbin/nologin forge \
-    && mkdir -p /etc/forge/tls && chown forge:forge /etc/forge/tls
+    && useradd -r -u 10001 -s /usr/sbin/nologin invar \
+    && mkdir -p /etc/invar/tls && chown invar:invar /etc/invar/tls
 
-COPY --from=builder /build/target/release/forge-backend /usr/local/bin/forge-backend
+COPY --from=builder /build/target/release/invar-backend /usr/local/bin/invar-backend
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER forge
+USER invar
 # HTTPS-only and zero-trust (capability tokens required) by default.
-ENV FORGE_BIND=0.0.0.0:8443 \
-    FORGE_ADMIN=issuer \
-    FORGE_REQUIRE_CAPS=true
+ENV INVAR_BIND=0.0.0.0:8443 \
+    INVAR_ADMIN=issuer \
+    INVAR_REQUIRE_CAPS=true
 EXPOSE 8443
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

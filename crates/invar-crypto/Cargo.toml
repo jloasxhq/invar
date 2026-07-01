@@ -1,6 +1,6 @@
 [package]
-name = "forge-crypto"
-description = "FIPS/PQC CryptoProvider for stablecoin-forge: ML-DSA-65 signatures, Argon2id KEK, and canonical-JSON/HKDF/AES-GCM/SHA-384 glue with golden-vector conformance."
+name = "invar-crypto"
+description = "FIPS/PQC CryptoProvider for invar: ML-DSA-65 signatures, Argon2id KEK, and canonical-JSON/HKDF/AES-GCM/SHA-384 glue with golden-vector conformance."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,7 +9,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-forge-core.workspace = true
+invar-core.workspace = true
 serde.workspace = true
 # preserve_order keeps canonical JSON key order stable across languages.
 serde_json = { workspace = true, features = ["preserve_order"] }

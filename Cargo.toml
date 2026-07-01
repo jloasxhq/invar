@@ -1,12 +1,12 @@
-# stablecoin-forge — Rust workspace
+# invar — Rust workspace
 # A generic, ledger-agnostic stablecoin framework with a FIPS/PQC crypto layer.
 [workspace]
 resolver = "2"
 members = [
-    "crates/forge-core",
-    "crates/forge-crypto",
-    "crates/forge-ledger-custodial",
-    "crates/forge-backend",
+    "crates/invar-core",
+    "crates/invar-crypto",
+    "crates/invar-ledger-custodial",
+    "crates/invar-backend",
 ]
 
 [workspace.package]
@@ -14,8 +14,8 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.82"
 license = "Apache-2.0"
-repository = "https://github.com/stablecoin-forge/stablecoin-forge"
-authors = ["stablecoin-forge contributors"]
+repository = "https://github.com/invar-mint/invar"
+authors = ["invar contributors"]
 
 [workspace.dependencies]
 # Domain / serialization
@@ -40,9 +40,9 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
 tower = "0.5"
 
 # Internal crates
-forge-core = { path = "crates/forge-core" }
-forge-crypto = { path = "crates/forge-crypto" }
-forge-ledger-custodial = { path = "crates/forge-ledger-custodial" }
+invar-core = { path = "crates/invar-core" }
+invar-crypto = { path = "crates/invar-crypto" }
+invar-ledger-custodial = { path = "crates/invar-ledger-custodial" }
 
 [profile.release]
 opt-level = 3

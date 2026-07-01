@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end smoke test: starts a throwaway forge-backend and exercises every
+# End-to-end smoke test: starts a throwaway invar-backend and exercises every
 # endpoint, link, and interconnection (domain <-> crypto <-> ledger over HTTP, the
 # Go CLI <-> backend link, capability-auth enforcement, and the PQC multisig flow).
 #
@@ -23,7 +23,7 @@ req() { # METHOD PATH [BODY] [TOKEN] ; sets HTTP + reads body into BODYFILE
   local method="$1" url="$2" body="${3:-}" token="${4:-}"
   local args=(-sk -o "$BODYFILE" -w "%{http_code}" -X "$method" "$url")
   [ -n "$body" ] && args+=(-H "content-type: application/json" -d "$body")
-  [ -n "$token" ] && args+=(-H "x-forge-capability: $token")
+  [ -n "$token" ] && args+=(-H "x-invar-capability: $token")
   HTTP="$(curl "${args[@]}")"
 }
 check() { # DESC EXPECTED
@@ -36,22 +36,22 @@ check() { # DESC EXPECTED
 jfield() { node -e 'let fs=require("fs");let o={};try{o=JSON.parse(fs.readFileSync(0,"utf8"))}catch(e){}process.stdout.write(String(o[process.argv[1]]??""))' "$1" < "$BODYFILE"; }
 assert_eq() { if [ "$2" = "$3" ]; then PASS=$((PASS+1)); printf "  ${GREEN}PASS${NC} %-52s [%s]\n" "$1" "$2"; else FAIL=$((FAIL+1)); printf "  ${RED}FAIL${NC} %-52s [got %s want %s]\n" "$1" "$2" "$3"; fi; }
 
-echo "==> Building forge-backend + Go CLI"
-cargo build --release -p forge-backend >/dev/null 2>&1 || { echo "cargo build failed"; exit 1; }
-BIN="target/release/forge-backend"; [ -f "${BIN}.exe" ] && BIN="${BIN}.exe"
+echo "==> Building invar-backend + Go CLI"
+cargo build --release -p invar-backend >/dev/null 2>&1 || { echo "cargo build failed"; exit 1; }
+BIN="target/release/invar-backend"; [ -f "${BIN}.exe" ] && BIN="${BIN}.exe"
 
 echo "==> Generating throwaway self-signed TLS cert"
 mkdir -p "$CERTDIR"
 MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -keyout "$CERTDIR/key.pem" -out "$CERTDIR/cert.pem" \
   -days 1 -nodes -subj "/CN=localhost" >/dev/null 2>&1 || { echo "openssl cert gen failed"; exit 1; }
-export FORGE_TLS_CERT="$CERTDIR/cert.pem" FORGE_TLS_KEY="$CERTDIR/key.pem"
+export INVAR_TLS_CERT="$CERTDIR/cert.pem" INVAR_TLS_KEY="$CERTDIR/key.pem"
 
 PIDS=()
 cleanup() { for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; rm -f "$BODYFILE"; rm -rf "$CERTDIR"; }
 trap cleanup EXIT
 
 echo "==> Starting backend (HTTPS, dev caps-off) on :${PORT}"
-FORGE_BIND="127.0.0.1:${PORT}" FORGE_ADMIN="issuer" FORGE_REQUIRE_CAPS=false "./$BIN" >/dev/null 2>&1 &
+INVAR_BIND="127.0.0.1:${PORT}" INVAR_ADMIN="issuer" INVAR_REQUIRE_CAPS=false "./$BIN" >/dev/null 2>&1 &
 PIDS+=($!)
 curl --retry-connrefused --retry 30 --retry-delay 1 -sfk "$BASE/health" >/dev/null || { echo "backend did not become healthy"; exit 1; }
 
@@ -140,7 +140,7 @@ req GET  "$BASE/entries";                                          check "GET /e
 echo "== Go CLI <-> backend interconnection =="
 if command -v go >/dev/null 2>&1; then
   EXT=""; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) EXT=".exe";; esac
-  CLIBIN="forge-cli${EXT}"
+  CLIBIN="invar-cli${EXT}"
   # Build to the project dir (go run's cache exe can be blocked by host policy).
   if (cd go && go build -o "$CLIBIN" ./cli 2>/dev/null); then
     if (cd go && "./$CLIBIN" -url "$BASE" -insecure token 2>/dev/null | grep -q "gUSD"); then
@@ -162,8 +162,8 @@ req POST "$BASE/token/delete";                                     check "POST /
 req POST "$BASE/mint" '{"to":"acme","amount":1}';                  check "mint blocked after delete -> 409" 409
 
 echo ""
-echo "== Capability ENFORCEMENT (second HTTPS instance, FORGE_REQUIRE_CAPS=true) on :${CAPS_PORT} =="
-FORGE_BIND="127.0.0.1:${CAPS_PORT}" FORGE_ADMIN="issuer" FORGE_REQUIRE_CAPS=true "./$BIN" >/dev/null 2>&1 &
+echo "== Capability ENFORCEMENT (second HTTPS instance, INVAR_REQUIRE_CAPS=true) on :${CAPS_PORT} =="
+INVAR_BIND="127.0.0.1:${CAPS_PORT}" INVAR_ADMIN="issuer" INVAR_REQUIRE_CAPS=true "./$BIN" >/dev/null 2>&1 &
 PIDS+=($!)
 curl --retry-connrefused --retry 30 --retry-delay 1 -sfk "$CAPS_BASE/health" >/dev/null || { echo "caps backend unhealthy"; }
 req POST "$CAPS_BASE/mint" '{"to":"acme","amount":1}';             check "mint WITHOUT token -> 403" 403

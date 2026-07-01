@@ -4,8 +4,8 @@
 
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Nonce};
-use forge_core::error::{ForgeError, Result};
 use hkdf::Hkdf;
+use invar_core::error::{InvarError, Result};
 use sha2::{Digest, Sha384};
 use sha3::Sha3_256;
 
@@ -16,7 +16,7 @@ use sha3::Sha3_256;
 /// Note: matches Python `json.dumps(separators=(",",":"))`. Non-ASCII is emitted
 /// as UTF-8 (not `\uXXXX`); keep signing preimages ASCII for cross-stack parity.
 pub fn canonical_json(value: &serde_json::Value) -> Result<Vec<u8>> {
-    serde_json::to_vec(value).map_err(|e| ForgeError::Serialization(e.to_string()))
+    serde_json::to_vec(value).map_err(|e| InvarError::Serialization(e.to_string()))
 }
 
 /// SHA-384 content fingerprint (FIPS 180-4).
@@ -32,7 +32,7 @@ pub fn hkdf_sha3_256(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Result
     let hk = Hkdf::<Sha3_256>::new(Some(salt), ikm);
     let mut okm = vec![0u8; len];
     hk.expand(info, &mut okm)
-        .map_err(|e| ForgeError::Crypto(format!("hkdf expand: {e}")))?;
+        .map_err(|e| InvarError::Crypto(format!("hkdf expand: {e}")))?;
     Ok(okm)
 }
 
@@ -40,10 +40,10 @@ pub fn hkdf_sha3_256(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Result
 /// to the ciphertext (the `aes-gcm` crate's default framing).
 pub fn aes256gcm_seal(key: &[u8], nonce: &[u8], aad: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
     if key.len() != 32 {
-        return Err(ForgeError::Crypto("AES-256 key must be 32 bytes".into()));
+        return Err(InvarError::Crypto("AES-256 key must be 32 bytes".into()));
     }
     if nonce.len() != 12 {
-        return Err(ForgeError::Crypto("GCM nonce must be 12 bytes".into()));
+        return Err(InvarError::Crypto("GCM nonce must be 12 bytes".into()));
     }
     let cipher = Aes256Gcm::new(key.into());
     cipher
@@ -54,7 +54,7 @@ pub fn aes256gcm_seal(key: &[u8], nonce: &[u8], aad: &[u8], plaintext: &[u8]) ->
                 aad,
             },
         )
-        .map_err(|e| ForgeError::Crypto(format!("aes-gcm seal: {e}")))
+        .map_err(|e| InvarError::Crypto(format!("aes-gcm seal: {e}")))
 }
 
 /// AES-256-GCM open (inverse of [`aes256gcm_seal`]).
@@ -62,7 +62,7 @@ pub fn aes256gcm_open(key: &[u8], nonce: &[u8], aad: &[u8], ct_tag: &[u8]) -> Re
     let cipher = Aes256Gcm::new(key.into());
     cipher
         .decrypt(Nonce::from_slice(nonce), Payload { msg: ct_tag, aad })
-        .map_err(|e| ForgeError::Crypto(format!("aes-gcm open: {e}")))
+        .map_err(|e| InvarError::Crypto(format!("aes-gcm open: {e}")))
 }
 
 #[cfg(test)]

@@ -11,7 +11,7 @@ use crate::account::{AccountId, KycStatus};
 use crate::allowance::Allowance;
 use crate::amount::Amount;
 use crate::crypto::{CryptoProvider, SigningKey, VerifyingKey};
-use crate::error::{ForgeError, Result};
+use crate::error::{InvarError, Result};
 use crate::hold::{Hold, HoldStatus};
 use crate::ledger::{EntryKind, LedgerEntry, LedgerPort};
 use crate::reserve::{assert_within_reserve, AttestationBody, ReserveAttestation, ReserveOracle};
@@ -102,7 +102,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
     fn require_role(&self, gov: &Governance, caller: &AccountId, role: Role) -> Result<()> {
         match gov.roles.get(caller) {
             Some(set) if set.has(role) => Ok(()),
-            _ => Err(ForgeError::Unauthorized(role.to_string())),
+            _ => Err(InvarError::Unauthorized(role.to_string())),
         }
     }
 
@@ -113,7 +113,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         {
             Ok(())
         } else {
-            Err(ForgeError::Unauthorized(
+            Err(InvarError::Unauthorized(
                 roles
                     .iter()
                     .map(|r| r.to_string())
@@ -126,16 +126,16 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
     fn require_verified(&self, gov: &Governance, id: &AccountId) -> Result<()> {
         match gov.kyc.get(id) {
             Some(KycStatus::Verified) => Ok(()),
-            _ => Err(ForgeError::NotVerified(id.to_string())),
+            _ => Err(InvarError::NotVerified(id.to_string())),
         }
     }
 
     fn ensure_not_paused(&self, gov: &Governance) -> Result<()> {
         if gov.deleted {
-            return Err(ForgeError::TokenDeleted);
+            return Err(InvarError::TokenDeleted);
         }
         if gov.paused {
-            return Err(ForgeError::Paused);
+            return Err(InvarError::Paused);
         }
         Ok(())
     }
@@ -145,7 +145,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
             Some(Allowance::Unlimited) => Ok(()),
             Some(Allowance::Limited(remaining)) => {
                 if remaining.get() < amount.get() {
-                    return Err(ForgeError::AllowanceExceeded {
+                    return Err(InvarError::AllowanceExceeded {
                         minter: minter.to_string(),
                         remaining: remaining.get(),
                         requested: amount.get(),
@@ -154,7 +154,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
                 *remaining = remaining.checked_sub(amount)?;
                 Ok(())
             }
-            None => Err(ForgeError::AllowanceExceeded {
+            None => Err(InvarError::AllowanceExceeded {
                 minter: minter.to_string(),
                 remaining: 0,
                 requested: amount.get(),
@@ -190,13 +190,13 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
     pub fn mint(&self, caller: &AccountId, to: &AccountId, amount: Amount) -> Result<LedgerEntry> {
         // Pre-checks that don't require governance state.
         if !self.ledger.is_registered(to)? {
-            return Err(ForgeError::NotRegistered(to.to_string()));
+            return Err(InvarError::NotRegistered(to.to_string()));
         }
         let new_supply = self.ledger.total_supply()?.checked_add(amount)?;
         assert_within_reserve(new_supply, self.ledger.attested_reserve()?)?;
         let mut acct = self.ledger.account(to)?;
         if acct.frozen {
-            return Err(ForgeError::Frozen(to.to_string()));
+            return Err(InvarError::Frozen(to.to_string()));
         }
         // Authorize and consume the caller's cash-in allowance atomically.
         {
@@ -258,7 +258,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         }
         let mut acct = self.ledger.account(from)?;
         if acct.frozen {
-            return Err(ForgeError::Frozen(from.to_string()));
+            return Err(InvarError::Frozen(from.to_string()));
         }
         acct.balance = acct.balance.checked_sub(amount)?;
         let new_supply = self.ledger.total_supply()?.checked_sub(amount)?;
@@ -290,10 +290,10 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         let mut src = self.ledger.account(from)?;
         let mut dst = self.ledger.account(to)?;
         if src.frozen {
-            return Err(ForgeError::Frozen(from.to_string()));
+            return Err(InvarError::Frozen(from.to_string()));
         }
         if dst.frozen {
-            return Err(ForgeError::Frozen(to.to_string()));
+            return Err(InvarError::Frozen(to.to_string()));
         }
         src.balance = src.balance.checked_sub(amount)?;
         dst.balance = dst.balance.checked_add(amount)?;
@@ -359,7 +359,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         }
         let mut acct = self.ledger.account(target)?;
         if !acct.frozen {
-            return Err(ForgeError::InvalidState(
+            return Err(InvarError::InvalidState(
                 "account must be frozen before it can be wiped".into(),
             ));
         }
@@ -455,7 +455,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         }
         let mut acct = self.ledger.account(from)?;
         if acct.frozen {
-            return Err(ForgeError::Frozen(from.to_string()));
+            return Err(InvarError::Frozen(from.to_string()));
         }
         acct.balance = acct.balance.checked_sub(amount)?;
         self.ledger.set_account(&acct)?;
@@ -490,16 +490,16 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
     ) -> Result<LedgerEntry> {
         let mut hold = self.ledger.get_hold(hold_id)?;
         if !hold.is_active() {
-            return Err(ForgeError::HoldNotActive(hold_id.to_string()));
+            return Err(InvarError::HoldNotActive(hold_id.to_string()));
         }
         if hold.is_expired(self.now()) {
-            return Err(ForgeError::HoldExpired(hold_id.to_string()));
+            return Err(InvarError::HoldExpired(hold_id.to_string()));
         }
         let dest = match (hold.beneficiary.clone(), target) {
             (Some(b), _) => b,
             (None, Some(t)) => t,
             (None, None) => {
-                return Err(ForgeError::InvalidState(
+                return Err(InvarError::InvalidState(
                     "hold has no beneficiary; a target must be supplied".into(),
                 ))
             }
@@ -514,7 +514,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         }
         let mut dst = self.ledger.account(&dest)?;
         if dst.frozen {
-            return Err(ForgeError::Frozen(dest.to_string()));
+            return Err(InvarError::Frozen(dest.to_string()));
         }
         dst.balance = dst.balance.checked_add(hold.amount)?;
         self.ledger.set_account(&dst)?;
@@ -535,7 +535,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
     pub fn release_hold(&self, caller: &AccountId, hold_id: &str) -> Result<LedgerEntry> {
         let mut hold = self.ledger.get_hold(hold_id)?;
         if !hold.is_active() {
-            return Err(ForgeError::HoldNotActive(hold_id.to_string()));
+            return Err(InvarError::HoldNotActive(hold_id.to_string()));
         }
         {
             let gov = self.gov.lock().unwrap();
@@ -576,7 +576,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
             let mut gov = self.gov.lock().unwrap();
             self.require_role(&gov, caller, Role::Deleter)?;
             if gov.deleted {
-                return Err(ForgeError::TokenDeleted);
+                return Err(InvarError::TokenDeleted);
             }
             gov.deleted = true;
         }

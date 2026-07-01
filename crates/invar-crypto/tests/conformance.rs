@@ -2,7 +2,7 @@
 //! recipes in `conformance/vectors.json`. The Go provider asserts the same file, so
 //! the ML-DSA signing preimage is provably identical across the polyglot stack.
 
-use forge_crypto::glue;
+use invar_crypto::glue;
 use serde_json::Value;
 
 fn load_vectors() -> Value {

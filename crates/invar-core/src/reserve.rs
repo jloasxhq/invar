@@ -6,7 +6,7 @@
 
 use crate::amount::Amount;
 use crate::crypto::{CryptoProvider, Signature, VerifyingKey};
-use crate::error::{ForgeError, Result};
+use crate::error::{InvarError, Result};
 use serde::{Deserialize, Serialize};
 
 /// The signed body of an attestation. Field names are fixed because they form the
@@ -23,7 +23,7 @@ pub struct AttestationBody {
 
 impl AttestationBody {
     /// Fixed schema tag so verifiers can pin the preimage format.
-    pub const SCHEMA: &'static str = "forge.reserve-attestation.v1";
+    pub const SCHEMA: &'static str = "invar.reserve-attestation.v1";
 
     /// Render the body as the canonical JSON value used as the signing preimage.
     pub fn to_json(&self) -> serde_json::Value {
@@ -63,7 +63,7 @@ impl ReserveAttestation {
 /// Enforce the core peg invariant used at mint time.
 pub fn assert_within_reserve(new_supply: Amount, reserve: Amount) -> Result<()> {
     if new_supply.get() > reserve.get() {
-        return Err(ForgeError::ReserveExceeded {
+        return Err(InvarError::ReserveExceeded {
             supply: new_supply.get(),
             reserve: reserve.get(),
         });

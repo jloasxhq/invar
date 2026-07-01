@@ -1,4 +1,4 @@
-// Package cryptobox provides the Go side of stablecoin-forge's cryptography:
+// Package cryptobox provides the Go side of invar's cryptography:
 // the deterministic "glue" (canonical JSON, SHA-384, HKDF-SHA3, AES-256-GCM) that
 // must agree byte-for-byte with the Rust provider, plus ML-KEM key establishment
 // and a FIPS-mode check. Everything here is Go standard library only, so the

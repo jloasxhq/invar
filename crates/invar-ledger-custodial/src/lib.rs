@@ -1,7 +1,7 @@
-//! # forge-ledger-custodial
+//! # invar-ledger-custodial
 //!
 //! An in-memory, double-entry **custodial** ledger implementing
-//! [`forge_core::LedgerPort`]. This is the "you are the issuer/custodian" backend:
+//! [`invar_core::LedgerPort`]. This is the "you are the issuer/custodian" backend:
 //! fiat lands with a custodian, the operator mints 1:1, holders transfer, and
 //! cash-out burns. It is the reference adapter; a DLT adapter (see `go/ledger-dlt`)
 //! implements the same port.
@@ -14,11 +14,11 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 
-use forge_core::account::{Account, AccountId};
-use forge_core::amount::Amount;
-use forge_core::error::{ForgeError, Result};
-use forge_core::hold::Hold;
-use forge_core::ledger::{LedgerEntry, LedgerPort};
+use invar_core::account::{Account, AccountId};
+use invar_core::amount::Amount;
+use invar_core::error::{InvarError, Result};
+use invar_core::hold::Hold;
+use invar_core::ledger::{LedgerEntry, LedgerPort};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize)]
@@ -51,16 +51,16 @@ impl CustodialLedger {
     pub fn save_to(&self, path: impl AsRef<Path>) -> Result<()> {
         let state = self.state.lock().unwrap();
         let json = serde_json::to_string_pretty(&*state)
-            .map_err(|e| ForgeError::Ledger(format!("serialize: {e}")))?;
-        std::fs::write(path, json).map_err(|e| ForgeError::Ledger(format!("write: {e}")))
+            .map_err(|e| InvarError::Ledger(format!("serialize: {e}")))?;
+        std::fs::write(path, json).map_err(|e| InvarError::Ledger(format!("write: {e}")))
     }
 
     /// Load a ledger from a JSON snapshot written by [`CustodialLedger::save_to`].
     pub fn load_from(path: impl AsRef<Path>) -> Result<Self> {
         let json =
-            std::fs::read_to_string(path).map_err(|e| ForgeError::Ledger(format!("read: {e}")))?;
+            std::fs::read_to_string(path).map_err(|e| InvarError::Ledger(format!("read: {e}")))?;
         let state: State =
-            serde_json::from_str(&json).map_err(|e| ForgeError::Ledger(format!("parse: {e}")))?;
+            serde_json::from_str(&json).map_err(|e| InvarError::Ledger(format!("parse: {e}")))?;
         Ok(CustodialLedger {
             state: Mutex::new(state),
         })
@@ -74,7 +74,7 @@ impl CustodialLedger {
             (s.supply.get(), sum)
         };
         if supply != sum {
-            return Err(ForgeError::InvalidState(format!(
+            return Err(InvarError::InvalidState(format!(
                 "ledger integrity broken: supply {supply} != sum(balances) {sum}"
             )));
         }
@@ -104,7 +104,7 @@ impl LedgerPort for CustodialLedger {
             .accounts
             .get(id)
             .cloned()
-            .ok_or_else(|| ForgeError::UnknownAccount(id.to_string()))
+            .ok_or_else(|| InvarError::UnknownAccount(id.to_string()))
     }
 
     fn set_account(&self, account: &Account) -> Result<()> {
@@ -159,7 +159,7 @@ impl LedgerPort for CustodialLedger {
             .holds
             .get(id)
             .cloned()
-            .ok_or_else(|| ForgeError::HoldNotFound(id.to_string()))
+            .ok_or_else(|| InvarError::HoldNotFound(id.to_string()))
     }
 
     fn holds(&self) -> Result<Vec<Hold>> {
@@ -170,8 +170,8 @@ impl LedgerPort for CustodialLedger {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use forge_core::{Amount, CryptoProvider, KycStatus, StablecoinService, TokenConfig};
-    use forge_crypto::FipsPqcProvider;
+    use invar_core::{Amount, CryptoProvider, KycStatus, StablecoinService, TokenConfig};
+    use invar_crypto::FipsPqcProvider;
 
     /// Full end-to-end flow with the REAL ML-DSA-65 provider and the custodial ledger.
     #[test]
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn persistence_round_trip() {
-        use forge_core::ledger::{EntryKind, LedgerEntry};
+        use invar_core::ledger::{EntryKind, LedgerEntry};
 
         let ledger = CustodialLedger::new();
         let acme = AccountId::new("acme");
@@ -242,7 +242,7 @@ mod tests {
             })
             .unwrap();
 
-        let path = std::env::temp_dir().join("forge_ledger_round_trip.json");
+        let path = std::env::temp_dir().join("invar_ledger_round_trip.json");
         ledger.save_to(&path).unwrap();
 
         let reloaded = CustodialLedger::load_from(&path).unwrap();
@@ -257,8 +257,8 @@ mod tests {
     /// End-to-end 2-of-3 multisig mint using the REAL ML-DSA-65 provider.
     #[test]
     fn multisig_mint_with_real_ml_dsa() {
-        use forge_core::multisig::{MultisigController, MultisigPolicy, OperationRequest};
-        use forge_core::Role;
+        use invar_core::multisig::{MultisigController, MultisigPolicy, OperationRequest};
+        use invar_core::Role;
         use std::sync::Arc;
 
         let admin = AccountId::new("issuer");

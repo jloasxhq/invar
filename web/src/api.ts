@@ -1,4 +1,4 @@
-// Typed client for the forge-backend REST API.
+// Typed client for the invar-backend REST API.
 
 export interface TokenInfo {
   name: string;
@@ -23,7 +23,7 @@ export interface LedgerEntry {
   as_of_unix: number;
 }
 
-export class ForgeClient {
+export class InvarClient {
   constructor(private base: string) {}
 
   private url(path: string): string {

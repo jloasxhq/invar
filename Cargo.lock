@@ -408,61 +408,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
-name = "forge-backend"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-server",
- "forge-core",
- "forge-crypto",
- "forge-ledger-custodial",
- "hex",
- "rustls",
- "serde",
- "serde_json",
- "tokio",
- "tower",
-]
-
-[[package]]
-name = "forge-core"
-version = "0.1.0"
-dependencies = [
- "hex",
- "serde",
- "serde_json",
- "thiserror",
- "uuid",
-]
-
-[[package]]
-name = "forge-crypto"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "argon2",
- "fips204",
- "forge-core",
- "hex",
- "hkdf",
- "serde",
- "serde_json",
- "sha2",
- "sha3",
- "zeroize",
-]
-
-[[package]]
-name = "forge-ledger-custodial"
-version = "0.1.0"
-dependencies = [
- "forge-core",
- "forge-crypto",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "form_urlencoded"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -733,6 +678,61 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "invar-backend"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-server",
+ "hex",
+ "invar-core",
+ "invar-crypto",
+ "invar-ledger-custodial",
+ "rustls",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+]
+
+[[package]]
+name = "invar-core"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
+name = "invar-crypto"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "argon2",
+ "fips204",
+ "hex",
+ "hkdf",
+ "invar-core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sha3",
+ "zeroize",
+]
+
+[[package]]
+name = "invar-ledger-custodial"
+version = "0.1.0"
+dependencies = [
+ "invar-core",
+ "invar-crypto",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

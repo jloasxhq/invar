@@ -1,4 +1,4 @@
-//! # forge-core
+//! # invar-core
 //!
 //! Ledger-agnostic stablecoin domain SDK. Business rules (authorization,
 //! compliance, the reserve peg invariant) live here and depend only on two
@@ -24,7 +24,7 @@ pub use allowance::Allowance;
 pub use amount::Amount;
 pub use capability::{Capability, SignedCapability};
 pub use crypto::{CryptoProvider, Signature, SigningKey, VerifyingKey};
-pub use error::{ForgeError, Result};
+pub use error::{InvarError, Result};
 pub use hold::{Hold, HoldStatus};
 pub use ledger::{EntryKind, LedgerEntry, LedgerPort};
 pub use multisig::{
@@ -77,7 +77,7 @@ mod tests {
                 .accounts
                 .get(id)
                 .cloned()
-                .ok_or_else(|| ForgeError::UnknownAccount(id.to_string()))
+                .ok_or_else(|| InvarError::UnknownAccount(id.to_string()))
         }
         fn set_account(&self, account: &Account) -> Result<()> {
             self.0
@@ -123,14 +123,14 @@ mod tests {
                 .holds
                 .get(id)
                 .cloned()
-                .ok_or_else(|| ForgeError::HoldNotFound(id.to_string()))
+                .ok_or_else(|| InvarError::HoldNotFound(id.to_string()))
         }
         fn holds(&self) -> Result<Vec<crate::hold::Hold>> {
             Ok(self.0.lock().unwrap().holds.values().cloned().collect())
         }
     }
 
-    /// Deterministic mock signer (NOT cryptographic — real PQC lives in forge-crypto).
+    /// Deterministic mock signer (NOT cryptographic — real PQC lives in invar-crypto).
     struct MockCrypto;
 
     fn canon(value: &serde_json::Value) -> Vec<u8> {
@@ -248,7 +248,7 @@ mod tests {
         let err = svc.mint(&admin, &alice, Amount::new(600)).unwrap_err();
         assert_eq!(
             err,
-            ForgeError::ReserveExceeded {
+            InvarError::ReserveExceeded {
                 supply: 600,
                 reserve: 500
             }
@@ -287,7 +287,7 @@ mod tests {
         let err = svc
             .transfer(&alice, &alice, &bob, Amount::new(10))
             .unwrap_err();
-        assert_eq!(err, ForgeError::Frozen("alice".into()));
+        assert_eq!(err, InvarError::Frozen("alice".into()));
     }
 
     #[test]
@@ -315,7 +315,7 @@ mod tests {
         svc.attest_reserve(&admin, &vk, &sk, Amount::new(1000), "bank")
             .unwrap();
         let err = svc.mint(&mallory, &mallory, Amount::new(10)).unwrap_err();
-        assert_eq!(err, ForgeError::Unauthorized("Minter".into()));
+        assert_eq!(err, InvarError::Unauthorized("Minter".into()));
     }
 
     #[test]
@@ -328,7 +328,7 @@ mod tests {
         svc.set_paused(&admin, true).unwrap();
         assert_eq!(
             svc.mint(&admin, &alice, Amount::new(10)).unwrap_err(),
-            ForgeError::Paused
+            InvarError::Paused
         );
     }
 
@@ -390,7 +390,7 @@ mod tests {
         assert!(svc.is_deleted());
         assert_eq!(
             svc.mint(&admin, &alice, Amount::new(1)).unwrap_err(),
-            ForgeError::TokenDeleted
+            InvarError::TokenDeleted
         );
     }
 
@@ -427,7 +427,7 @@ mod tests {
         // Beyond remaining allowance (200 left): rejected.
         assert_eq!(
             svc.mint(&sup, &sup, Amount::new(300)).unwrap_err(),
-            ForgeError::AllowanceExceeded {
+            InvarError::AllowanceExceeded {
                 minter: "supplier".into(),
                 remaining: 200,
                 requested: 300
@@ -444,7 +444,7 @@ mod tests {
         // No allowance set for a non-admin minter -> rejected.
         assert!(matches!(
             svc.mint(&sup, &sup, Amount::new(1)).unwrap_err(),
-            ForgeError::AllowanceExceeded { .. }
+            InvarError::AllowanceExceeded { .. }
         ));
     }
 
@@ -518,26 +518,26 @@ mod tests {
         let sig_bad = MockCrypto.sign(&sk_bad, &preimage).unwrap();
         assert_eq!(
             ctrl.approve(&op.id, &vk_bad, &sig_bad).unwrap_err(),
-            ForgeError::UnknownSigner
+            InvarError::UnknownSigner
         );
 
         // Bad signature rejected (vk3 with signer-1 signature bytes).
         let sig1 = MockCrypto.sign(&sk1, &preimage).unwrap();
         assert_eq!(
             ctrl.approve(&op.id, &vk3, &sig1).unwrap_err(),
-            ForgeError::BadSignature
+            InvarError::BadSignature
         );
 
         // First valid approval; quorum not yet met.
         ctrl.approve(&op.id, &vk1, &sig1).unwrap();
         assert_eq!(
             ctrl.execute(&op.id).unwrap_err(),
-            ForgeError::QuorumNotMet { have: 1, need: 2 }
+            InvarError::QuorumNotMet { have: 1, need: 2 }
         );
         // Duplicate approval rejected.
         assert_eq!(
             ctrl.approve(&op.id, &vk1, &sig1).unwrap_err(),
-            ForgeError::DuplicateApproval
+            InvarError::DuplicateApproval
         );
 
         // Second valid approval reaches quorum; execute mints.
@@ -549,7 +549,7 @@ mod tests {
         // Re-execute rejected.
         assert_eq!(
             ctrl.execute(&op.id).unwrap_err(),
-            ForgeError::AlreadyExecuted(op.id.clone())
+            InvarError::AlreadyExecuted(op.id.clone())
         );
     }
 
@@ -579,20 +579,20 @@ mod tests {
         // Wrong scope rejected.
         assert_eq!(
             verify_scope(&crypto, &issuer_vk, &signed, now, "delete").unwrap_err(),
-            ForgeError::InsufficientScope("delete".into())
+            InvarError::InsufficientScope("delete".into())
         );
 
         // Expired rejected.
         assert_eq!(
             verify_scope(&crypto, &issuer_vk, &signed, 2_000_000_001, "mint").unwrap_err(),
-            ForgeError::CapabilityExpired
+            InvarError::CapabilityExpired
         );
 
         // Wrong issuer key rejected.
         let wrong_vk = VerifyingKey(vec![7; 4]);
         assert_eq!(
             verify_scope(&crypto, &wrong_vk, &signed, now, "mint").unwrap_err(),
-            ForgeError::BadSignature
+            InvarError::BadSignature
         );
     }
 

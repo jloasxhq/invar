@@ -1,12 +1,12 @@
-//! The concrete [`CryptoProvider`] for stablecoin-forge, backed by **ML-DSA-65**
+//! The concrete [`CryptoProvider`] for invar, backed by **ML-DSA-65**
 //! (NIST FIPS 204) via the `fips204` crate, which is KAT-locked to the NIST
 //! reference vectors. Signatures over reserve attestations and (future) ledger
 //! checkpoints are therefore post-quantum.
 
 use fips204::ml_dsa_65;
 use fips204::traits::{SerDes, Signer, Verifier};
-use forge_core::crypto::{CryptoProvider, Signature, SigningKey, VerifyingKey};
-use forge_core::error::{ForgeError, Result};
+use invar_core::crypto::{CryptoProvider, Signature, SigningKey, VerifyingKey};
+use invar_core::error::{InvarError, Result};
 
 use crate::glue;
 
@@ -27,7 +27,7 @@ impl CryptoProvider for FipsPqcProvider {
 
     fn generate_keypair(&self) -> Result<(VerifyingKey, SigningKey)> {
         let (pk, sk) = ml_dsa_65::try_keygen()
-            .map_err(|e| ForgeError::Crypto(format!("ml-dsa keygen: {e}")))?;
+            .map_err(|e| InvarError::Crypto(format!("ml-dsa keygen: {e}")))?;
         Ok((
             VerifyingKey(pk.into_bytes().to_vec()),
             SigningKey(sk.into_bytes().to_vec()),
@@ -36,12 +36,12 @@ impl CryptoProvider for FipsPqcProvider {
 
     fn sign(&self, sk: &SigningKey, msg: &[u8]) -> Result<Signature> {
         let arr = <[u8; ml_dsa_65::SK_LEN]>::try_from(sk.0.as_slice())
-            .map_err(|_| ForgeError::Crypto("invalid ML-DSA-65 secret key length".into()))?;
+            .map_err(|_| InvarError::Crypto("invalid ML-DSA-65 secret key length".into()))?;
         let key = ml_dsa_65::PrivateKey::try_from_bytes(arr)
-            .map_err(|e| ForgeError::Crypto(format!("ml-dsa load sk: {e}")))?;
+            .map_err(|e| InvarError::Crypto(format!("ml-dsa load sk: {e}")))?;
         let sig = key
             .try_sign(msg, &[])
-            .map_err(|e| ForgeError::Crypto(format!("ml-dsa sign: {e}")))?;
+            .map_err(|e| InvarError::Crypto(format!("ml-dsa sign: {e}")))?;
         Ok(Signature(sig.to_vec()))
     }
 

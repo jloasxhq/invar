@@ -1,4 +1,4 @@
-# stablecoin-forge — developer convenience targets.
+# invar — developer convenience targets.
 # Requires: cargo, go 1.24+, node 20.19+/22+, (optional) docker.
 
 .PHONY: help build test ci fmt clippy run smoke docker-build docker-up web-build
@@ -34,7 +34,7 @@ web-build: ## Type-check + build the web dashboard
 	cd web && npm ci && npm run build
 
 docker-build: ## Build the backend container image
-	docker build -t stablecoin-forge:0.1.0 .
+	docker build -t invar:0.1.0 .
 
 docker-up: ## Run the backend via docker compose
 	docker compose up --build

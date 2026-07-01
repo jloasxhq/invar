@@ -1,28 +1,28 @@
 # Architecture
 
-stablecoin-forge is a **hexagonal (ports & adapters)** system. Business rules live
-in `forge-core` and depend on two ports; everything else is a replaceable adapter.
+invar is a **hexagonal (ports & adapters)** system. Business rules live
+in `invar-core` and depend on two ports; everything else is a replaceable adapter.
 
 ## Crate / package map
 
 | Component | Lang | Kind | Depends on |
 |---|---|---|---|
-| `forge-core` | Rust | domain (hexagon): token ops, roles, compliance, reserve, **multisig**, **capabilities** | — |
-| `forge-crypto` | Rust | adapter (CryptoProvider): ML-DSA-65, Argon2id KEK, **sealed keystore** | forge-core |
-| `forge-ledger-custodial` | Rust | adapter (LedgerPort): double-entry + file persistence | forge-core |
-| `forge-backend` | Rust | driver: **HTTPS** REST + capability auth | all Rust crates |
+| `invar-core` | Rust | domain (hexagon): token ops, roles, compliance, reserve, **multisig**, **capabilities** | — |
+| `invar-crypto` | Rust | adapter (CryptoProvider): ML-DSA-65, Argon2id KEK, **sealed keystore** | invar-core |
+| `invar-ledger-custodial` | Rust | adapter (LedgerPort): double-entry + file persistence | invar-core |
+| `invar-backend` | Rust | driver: **HTTPS** REST + capability auth | all Rust crates |
 | `go/crypto` | Go | crypto glue + ML-KEM + FIPS check | — (std only) |
 | `go/ledger-dlt` | Go | adapter stub (Fabric) | — |
 | `go/cli` | Go | driver (HTTPS client) | — (std only) |
 | `web/` | React/TS | driver (operator dashboard) | Vite |
 
-## The two ports (`forge-core`)
+## The two ports (`invar-core`)
 
 - **`LedgerPort`** — persistence of accounts, supply, reserve, holds, and the
-  append-only entry log. Implemented by `forge-ledger-custodial` (custodial, file
+  append-only entry log. Implemented by `invar-ledger-custodial` (custodial, file
   persistence) today; by `go/ledger-dlt` (Hyperledger Fabric) later.
 - **`CryptoProvider`** — signatures + deterministic glue. Implemented by
-  `forge-crypto` (ML-DSA-65). Keys/signatures are opaque bytes, so the core is
+  `invar-crypto` (ML-DSA-65). Keys/signatures are opaque bytes, so the core is
   signature-scheme agnostic — and this is the **HSM drop-in seam** (a PKCS#11 impl
   slots in unchanged; see `FIPS-PQC.md`).
 
@@ -42,7 +42,7 @@ in `forge-core` and depend on two ports; everything else is a replaceable adapte
 - **Proof-of-reserve** — ML-DSA-65-signed attestations + an external reserve-oracle
   port.
 
-## Authorization & multisig (`forge-core`)
+## Authorization & multisig (`invar-core`)
 
 - **Capability tokens** (`capability`) — an **ML-DSA-65-signed**, scoped, TTL-bounded
   grant. The backend verifies each request's token against a pinned issuer key and
@@ -66,8 +66,8 @@ in `forge-core` and depend on two ports; everything else is a replaceable adapte
 ## Data flow (capability-gated mint)
 
 ```
-HTTPS POST /mint (X-Forge-Capability: <token>)
-   └► forge-backend: AuthCaller verifies ML-DSA-65 token, checks "mint" scope
+HTTPS POST /mint (X-Invar-Capability: <token>)
+   └► invar-backend: AuthCaller verifies ML-DSA-65 token, checks "mint" scope
         └► StablecoinService.mint(caller = token.subject)
              ├─ not paused/deleted? caller has Minter? `to` verified?
              ├─ consume caller's supply allowance (Admins exempt)
@@ -81,7 +81,7 @@ which requires an M-of-N ML-DSA-65 quorum before the same service call executes.
 
 ## Cross-language conformance
 
-The signing preimage is **canonical JSON**. Rust (`forge-crypto`) and Go
+The signing preimage is **canonical JSON**. Rust (`invar-crypto`) and Go
 (`go/crypto`) both assert byte-equality against `conformance/vectors.json`
 (canonical JSON, SHA-384, HKDF-SHA3, AES-256-GCM), so an attestation or capability
 signed on one side verifies on the other. Primitives (ML-DSA/ML-KEM) are KAT-locked

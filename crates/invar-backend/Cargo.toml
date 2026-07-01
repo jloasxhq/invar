@@ -1,6 +1,6 @@
 [package]
-name = "forge-backend"
-description = "REST API service for stablecoin-forge (axum), wiring HTTP to the domain service."
+name = "invar-backend"
+description = "REST API service for invar (axum), wiring HTTP to the domain service."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,13 +9,13 @@ repository.workspace = true
 authors.workspace = true
 
 [[bin]]
-name = "forge-backend"
+name = "invar-backend"
 path = "src/main.rs"
 
 [dependencies]
-forge-core.workspace = true
-forge-crypto.workspace = true
-forge-ledger-custodial.workspace = true
+invar-core.workspace = true
+invar-crypto.workspace = true
+invar-ledger-custodial.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 hex.workspace = true

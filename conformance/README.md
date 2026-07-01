@@ -13,7 +13,7 @@ even when each language's primitives are individually correct.
 | `fingerprint` | FIPS 180-4 | SHA-384 digest encoding |
 | `signing_preimage` | RFC 8259 / ECMA-404 | canonical JSON: key order, minimal separators |
 
-Both the Rust (`crates/forge-crypto`) and Go (`go/crypto`) providers assert **byte-equality**
+Both the Rust (`crates/invar-crypto`) and Go (`go/crypto`) providers assert **byte-equality**
 against this file, so the ML-DSA signing preimage is provably identical across languages.
 
 Primitives themselves (ML-DSA / ML-KEM) are KAT-locked to NIST FIPS 204 / 203 and are not

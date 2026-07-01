@@ -1,6 +1,6 @@
 [package]
-name = "forge-ledger-custodial"
-description = "Custodial double-entry ledger adapter implementing forge-core's LedgerPort, with a total-supply <= reserve integrity check."
+name = "invar-ledger-custodial"
+description = "Custodial double-entry ledger adapter implementing invar-core's LedgerPort, with a total-supply <= reserve integrity check."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,9 +9,9 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-forge-core.workspace = true
+invar-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-forge-crypto.workspace = true
+invar-crypto.workspace = true

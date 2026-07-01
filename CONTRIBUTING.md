@@ -1,4 +1,4 @@
-# Contributing to stablecoin-forge
+# Contributing to invar
 
 Thanks for your interest! This is a polyglot monorepo (Rust + Go + a small web app).
 Contributions are accepted under the project's [Apache-2.0](LICENSE) license.

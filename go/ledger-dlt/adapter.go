@@ -1,4 +1,4 @@
-// Package dlt is the distributed-ledger adapter for stablecoin-forge. It mirrors
+// Package dlt is the distributed-ledger adapter for invar. It mirrors
 // the Rust LedgerPort so the same domain flows can target a permissioned chain
 // (e.g. Hyperledger Fabric) instead of the custodial ledger.
 //
@@ -27,7 +27,7 @@ type Account struct {
 	Frozen  bool
 }
 
-// LedgerPort is the Go-side counterpart of forge-core's LedgerPort trait.
+// LedgerPort is the Go-side counterpart of invar-core's LedgerPort trait.
 type LedgerPort interface {
 	IsRegistered(id string) (bool, error)
 	Register(id string) error

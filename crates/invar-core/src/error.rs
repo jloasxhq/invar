@@ -3,7 +3,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
-pub enum ForgeError {
+pub enum InvarError {
     #[error("amount arithmetic overflow")]
     AmountOverflow,
 
@@ -97,4 +97,4 @@ pub enum ForgeError {
     MalformedCapability(String),
 }
 
-pub type Result<T> = std::result::Result<T, ForgeError>;
+pub type Result<T> = std::result::Result<T, InvarError>;

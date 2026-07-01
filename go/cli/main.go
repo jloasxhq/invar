@@ -1,5 +1,5 @@
-// Command forge-cli is the operator client for stablecoin-forge. It talks to the
-// forge-backend REST API. Build and run it under the Go FIPS module for a
+// Command invar-cli is the operator client for invar. It talks to the
+// invar-backend REST API. Build and run it under the Go FIPS module for a
 // validated transport boundary:
 //
 //	GODEBUG=fips140=on go run ./cli -url http://127.0.0.1:8080 token
@@ -19,9 +19,9 @@ import (
 	"strings"
 )
 
-const usage = `forge-cli — stablecoin-forge operator client
+const usage = `invar-cli — invar operator client
 
-usage: forge-cli [-url BASE] [-insecure] <command> [args]
+usage: invar-cli [-url BASE] [-insecure] <command> [args]
   -url BASE    API base (default https://127.0.0.1:8443)
   -insecure    skip TLS certificate verification (dev/self-signed only)
 

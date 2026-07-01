@@ -1,7 +1,7 @@
 //! Fixed-point token amounts, held in integer minor units (like cents) to avoid
 //! floating-point drift. `u128` gives headroom far beyond any realistic supply.
 
-use crate::error::{ForgeError, Result};
+use crate::error::{InvarError, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -30,7 +30,7 @@ impl Amount {
         self.0
             .checked_add(other.0)
             .map(Amount)
-            .ok_or(ForgeError::AmountOverflow)
+            .ok_or(InvarError::AmountOverflow)
     }
 
     /// Checked subtraction — errors if it would go negative (insufficient funds).
@@ -38,7 +38,7 @@ impl Amount {
         self.0
             .checked_sub(other.0)
             .map(Amount)
-            .ok_or(ForgeError::InsufficientBalance)
+            .ok_or(InvarError::InsufficientBalance)
     }
 }
 
@@ -62,7 +62,7 @@ mod tests {
     fn overflow_is_error() {
         assert_eq!(
             Amount(u128::MAX).checked_add(Amount(1)),
-            Err(ForgeError::AmountOverflow)
+            Err(InvarError::AmountOverflow)
         );
     }
 
@@ -70,7 +70,7 @@ mod tests {
     fn underflow_is_insufficient_balance() {
         assert_eq!(
             Amount(1).checked_sub(Amount(2)),
-            Err(ForgeError::InsufficientBalance)
+            Err(InvarError::InsufficientBalance)
         );
     }
 }

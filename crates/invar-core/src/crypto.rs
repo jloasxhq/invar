@@ -1,5 +1,5 @@
 //! Cryptography **port** (hexagonal architecture). The core depends only on this
-//! trait; a concrete provider (e.g. `forge-crypto` with ML-DSA-65) is injected as
+//! trait; a concrete provider (e.g. `invar-crypto` with ML-DSA-65) is injected as
 //! an adapter. Keys and signatures are opaque byte strings so the core stays
 //! agnostic to the signature scheme.
 
