@@ -1,0 +1,26 @@
+[package]
+name = "forge-backend"
+description = "REST API service for stablecoin-forge (axum), wiring HTTP to the domain service."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "forge-backend"
+path = "src/main.rs"
+
+[dependencies]
+forge-core.workspace = true
+forge-crypto.workspace = true
+forge-ledger-custodial.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+axum.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tower.workspace = true

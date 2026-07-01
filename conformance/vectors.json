@@ -1,0 +1,44 @@
+{
+  "_meta": {
+    "tool": "crypto-golden-vectors",
+    "self_verified": true
+  },
+  "session_key": {
+    "std": "RFC 5869",
+    "hash": "sha3_256",
+    "ikm_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "info": "example-lan-v1",
+    "salt_hex": "00*32",
+    "len": 32,
+    "okm_hex": "0858008394620fc18fa55746c58223989400106bfb0fb8b44d8c6fe5af3648df"
+  },
+  "frame": {
+    "std": "NIST SP 800-38D",
+    "key_hex": "00112233445566778899aabbccddeeff102132435465768798a9bacbdcedfe0f",
+    "nonce_hex": "000102030405060708090a0b",
+    "aad_utf8": "",
+    "plaintext_utf8": "{\"cmd\":\"OK\",\"args\":{}}",
+    "ciphertext_tag_hex": "435ff31df91052ff4a3da05388be0098fe9cda3089b5f5247c4d4f0edf4a8f672ba7c025df9b",
+    "note": "12B nonce, 16B tag appended, no AAD unless given"
+  },
+  "fingerprint": {
+    "std": "FIPS 180-4/202",
+    "hash": "sha384",
+    "input_hex": "0a0b0c0d",
+    "digest_hex": "91f4748247584b8649abe1aa1f8d4572a8695acde705c607347955eee20a74c0f47e2f78130f9089639b16abb7c699c2"
+  },
+  "signing_preimage": {
+    "std": "RFC 8259/ECMA-404",
+    "object": {
+      "cmd": "DPAD_UP",
+      "args": {
+        "repeat": "2"
+      },
+      "box_id": "node01",
+      "nonce": "aabbccddeeff00112233445566778899",
+      "ts": 1718600000
+    },
+    "preimage_utf8": "{\"cmd\":\"DPAD_UP\",\"args\":{\"repeat\":\"2\"},\"box_id\":\"node01\",\"nonce\":\"aabbccddeeff00112233445566778899\",\"ts\":1718600000}",
+    "preimage_hex": "7b22636d64223a22445041445f5550222c2261726773223a7b22726570656174223a2232227d2c22626f785f6964223a226e6f64653031222c226e6f6e6365223a226161626263636464656566663030313132323333343435353636373738383939222c227473223a313731383630303030307d"
+  }
+}

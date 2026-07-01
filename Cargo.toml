@@ -1,0 +1,49 @@
+# stablecoin-forge — Rust workspace
+# A generic, ledger-agnostic stablecoin framework with a FIPS/PQC crypto layer.
+[workspace]
+resolver = "2"
+members = [
+    "crates/forge-core",
+    "crates/forge-crypto",
+    "crates/forge-ledger-custodial",
+    "crates/forge-backend",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+repository = "https://github.com/stablecoin-forge/stablecoin-forge"
+authors = ["stablecoin-forge contributors"]
+
+[workspace.dependencies]
+# Domain / serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+hex = "0.4"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Cryptography — algorithms standardized by NIST/IETF (see docs/FIPS-PQC.md)
+fips204 = "0.4"          # FIPS 204 ML-DSA (KAT-locked to NIST vectors)
+argon2 = "0.5"           # RFC 9106 Argon2id (KEK derivation policy)
+sha2 = "0.10"            # FIPS 180-4 SHA-2
+sha3 = "0.10"            # FIPS 202 SHA-3
+hkdf = "0.12"            # RFC 5869 HKDF
+aes-gcm = "0.10"         # NIST SP 800-38D AES-GCM
+zeroize = "1"
+
+# Backend
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
+tower = "0.5"
+
+# Internal crates
+forge-core = { path = "crates/forge-core" }
+forge-crypto = { path = "crates/forge-crypto" }
+forge-ledger-custodial = { path = "crates/forge-ledger-custodial" }
+
+[profile.release]
+opt-level = 3
+lto = true

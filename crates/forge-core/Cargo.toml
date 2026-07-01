@@ -1,0 +1,16 @@
+[package]
+name = "forge-core"
+description = "Ledger-agnostic stablecoin domain SDK: token operations, ports, roles, compliance, reserve invariant."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+hex.workspace = true
+uuid.workspace = true

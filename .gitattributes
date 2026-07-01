@@ -1,0 +1,10 @@
+# Normalize line endings: LF in the repository, auto-converted in working copies.
+* text=auto eol=lf
+
+# Treat lockfiles and generated JSON as text.
+*.json text
+*.lock text
+
+# Binary safety net.
+*.png binary
+*.jpg binary

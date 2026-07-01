@@ -1,0 +1,26 @@
+stablecoin-forge
+Copyright 2026 stablecoin-forge contributors
+
+This product includes software developed as an original, clean-room work.
+
+ARCHITECTURAL REFERENCE
+-----------------------
+The high-level module decomposition and the set of stablecoin compliance
+operations (mint, burn, transfer, freeze, wipe, pause, KYC/KYB, role-based
+access control, proof-of-reserve) were informed by the publicly documented
+architecture of Hashgraph's "stablecoin-studio"
+(https://github.com/hashgraph/stablecoin-studio, Apache-2.0).
+
+No source code from stablecoin-studio was copied, adapted, or translated into
+this repository. stablecoin-forge is ledger-agnostic (stablecoin-studio targets
+the Hedera network) and adds a FIPS/PQC cryptography layer that has no
+counterpart in the reference project. This NOTICE records inspiration only and
+creates no dependency on, or endorsement by, the referenced project.
+
+CRYPTOGRAPHY
+------------
+This project implements algorithms standardized in NIST FIPS 203 (ML-KEM),
+FIPS 204 (ML-DSA), FIPS 180-4/202 (SHA-2/SHA-3), SP 800-38D (AES-GCM),
+SP 800-108/RFC 5869 (KDF/HKDF), and RFC 9106 (Argon2id). Use of these
+algorithms does not by itself constitute FIPS 140-3 module validation. See
+docs/FIPS-PQC.md for the exact conformance posture and boundaries.

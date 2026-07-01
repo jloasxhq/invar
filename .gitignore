@@ -1,0 +1,28 @@
+# Rust
+/target
+**/target
+Cargo.lock
+
+# Go
+/go/**/*.exe
+go/**/bin/
+
+# Node / web
+node_modules/
+web/dist/
+web/build/
+
+# Env / secrets — never commit
+.env
+*.pem
+*.key
+*.p12
+keystore/
+*.kek
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
