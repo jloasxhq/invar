@@ -16,6 +16,7 @@ path = "src/main.rs"
 invar-core.workspace = true
 invar-crypto.workspace = true
 invar-ledger-custodial.workspace = true
+invar-ledger-sqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 hex.workspace = true

@@ -28,6 +28,8 @@ struct State {
     reserve: Amount,
     entries: Vec<LedgerEntry>,
     holds: HashMap<String, Hold>,
+    #[serde(default)]
+    governance: Option<Vec<u8>>,
 }
 
 #[derive(Default)]
@@ -164,6 +166,15 @@ impl LedgerPort for CustodialLedger {
 
     fn holds(&self) -> Result<Vec<Hold>> {
         Ok(self.state.lock().unwrap().holds.values().cloned().collect())
+    }
+
+    fn load_governance(&self) -> Result<Option<Vec<u8>>> {
+        Ok(self.state.lock().unwrap().governance.clone())
+    }
+
+    fn save_governance(&self, data: &[u8]) -> Result<()> {
+        self.state.lock().unwrap().governance = Some(data.to_vec());
+        Ok(())
     }
 }
 

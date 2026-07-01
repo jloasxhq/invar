@@ -5,10 +5,12 @@
 //! against a pinned issuer key. TLS is mandatory (see `main.rs`); the `pqc-tls` build
 //! adds hybrid post-quantum key exchange.
 //!
-//! Two things remain stubbed for a real deployment (see `docs/ROADMAP.md`): the
-//! `/auth/token` issuer is in-process (production uses an external IdP), and the
-//! reserve-attestor / issuer keys are held in memory (production uses an HSM/KMS via
-//! the `CryptoProvider` seam).
+//! State persists through the `LedgerPort` — set `INVAR_DB_PATH` for the durable
+//! SQLite backend (balances, reserve, holds, and governance survive a restart).
+//! Capability issuance can be externalized: set `INVAR_ISSUER_PUBKEY` for verify-only
+//! mode (an external IdP holds the signing key; `/auth/token` is disabled). The
+//! remaining stub is in-memory key custody (production uses an HSM/KMS via the
+//! `CryptoProvider` seam — see `docs/ROADMAP.md`).
 
 use std::sync::Arc;
 
@@ -23,11 +25,12 @@ use serde::{Deserialize, Serialize};
 
 use invar_core::multisig::{MultisigController, MultisigPolicy, OperationRequest};
 use invar_core::{
-    AccountId, Allowance, Amount, CryptoProvider, InvarError, KycStatus, ManualReserveOracle, Role,
-    SigningKey, StablecoinService, TokenConfig, VerifyingKey,
+    AccountId, Allowance, Amount, CryptoProvider, InvarError, KycStatus, LedgerPort,
+    ManualReserveOracle, Role, SigningKey, StablecoinService, TokenConfig, VerifyingKey,
 };
 use invar_crypto::FipsPqcProvider;
 use invar_ledger_custodial::CustodialLedger;
+use invar_ledger_sqlite::SqliteLedger;
 
 pub type Ctrl = MultisigController<Ledger, FipsPqcProvider>;
 
@@ -47,7 +50,9 @@ fn parse_role(s: &str) -> Option<Role> {
     })
 }
 
-pub type Ledger = Arc<CustodialLedger>;
+/// The ledger is a trait object so the backend can select a durable SQLite store
+/// or the in-memory custodial ledger at runtime.
+pub type Ledger = Arc<dyn LedgerPort>;
 pub type Svc = StablecoinService<Ledger, FipsPqcProvider>;
 
 #[derive(Clone)]
@@ -61,9 +66,11 @@ pub struct AppState {
     /// DEMO ONLY: multisig signer keypairs held in-process. In production these are
     /// external/HSM-held; the backend would only ever see detached signatures.
     signers: Arc<Vec<(VerifyingKey, SigningKey)>>,
-    /// Capability issuer key (the IdP in production). The verifying key is pinned.
+    /// Pinned capability-issuer verifying key. The signing key is only held here in
+    /// dev; in production (verify-only mode) an external IdP holds it and `issuer_sk`
+    /// is `None`, so `/auth/token` issuance is disabled.
     issuer_vk: VerifyingKey,
-    issuer_sk: Arc<SigningKey>,
+    issuer_sk: Option<Arc<SigningKey>>,
     /// When true, privileged endpoints require a valid capability token; when false
     /// (dev default), a missing token falls back to the bootstrap admin.
     require_caps: bool,
@@ -76,16 +83,57 @@ impl AppState {
         Self::with_caps(config, admin, false)
     }
 
-    /// Build state, optionally requiring capability tokens on privileged endpoints.
+    /// Build state (in-memory custodial ledger), optionally requiring capabilities.
     pub fn with_caps(
         config: TokenConfig,
         admin: impl Into<String>,
         require_caps: bool,
     ) -> Result<Self, InvarError> {
+        Self::with_ledger(
+            config,
+            admin,
+            require_caps,
+            Arc::new(CustodialLedger::new()),
+        )
+    }
+
+    /// Select the ledger from the environment: `INVAR_DB_PATH` → durable SQLite
+    /// (persists balances, reserve, holds, and governance across restarts);
+    /// otherwise the in-memory custodial ledger.
+    pub fn from_env(
+        config: TokenConfig,
+        admin: impl Into<String>,
+        require_caps: bool,
+    ) -> Result<Self, InvarError> {
+        let ledger: Ledger = match std::env::var("INVAR_DB_PATH") {
+            Ok(p) if !p.is_empty() => Arc::new(SqliteLedger::open(&p)?),
+            _ => Arc::new(CustodialLedger::new()),
+        };
+        let mut state = Self::with_ledger(config, admin, require_caps, ledger)?;
+        // External-issuer (verify-only) mode: pin the IdP's public key and disable
+        // the in-process /auth/token issuer. The IdP holds the signing key.
+        if let Ok(hexpk) = std::env::var("INVAR_ISSUER_PUBKEY") {
+            if !hexpk.is_empty() {
+                let bytes = hex::decode(hexpk.trim())
+                    .map_err(|e| InvarError::MalformedCapability(format!("issuer pubkey: {e}")))?;
+                state.issuer_vk = VerifyingKey(bytes);
+                state.issuer_sk = None;
+            }
+        }
+        Ok(state)
+    }
+
+    /// Build state with a caller-provided ledger backend.
+    pub fn with_ledger(
+        config: TokenConfig,
+        admin: impl Into<String>,
+        require_caps: bool,
+        ledger: Ledger,
+    ) -> Result<Self, InvarError> {
         let admin = AccountId::new(admin);
         let svc = Arc::new(StablecoinService::new(
             config,
-            Arc::new(CustodialLedger::new()),
+            ledger,
             FipsPqcProvider::new(),
             admin.clone(),
         )?);
@@ -124,7 +172,7 @@ impl AppState {
             oracle: Arc::new(ManualReserveOracle::new("custodian-api", Amount::ZERO)),
             signers: Arc::new(signers),
             issuer_vk,
-            issuer_sk: Arc::new(issuer_sk),
+            issuer_sk: Some(Arc::new(issuer_sk)),
             require_caps,
         })
     }
@@ -246,6 +294,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/auth/token", post(issue_token))
+        .route("/auth/pubkey", get(issuer_pubkey))
         .route("/token", get(token))
         .route("/accounts", post(register_account))
         .route("/accounts/:id", get(get_account))
@@ -393,6 +442,15 @@ async fn health() -> &'static str {
 
 /// DEV issuance endpoint (stands in for an IdP). Issues an ML-DSA-signed capability
 /// token; returns it hex-encoded for the `X-Invar-Capability` header.
+/// The pinned capability-issuer verifying key and whether in-process issuance is on.
+async fn issuer_pubkey(State(s): State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "algorithm": "ML-DSA-65",
+        "issuer_pubkey": hex::encode(&s.issuer_vk.0),
+        "issuance_enabled": s.issuer_sk.is_some(),
+    }))
+}
+
 async fn issue_token(
     State(s): State<AppState>,
     Json(req): Json<TokenReq>,
@@ -402,6 +460,13 @@ async fn issue_token(
     } else {
         now_unix() + req.ttl_secs
     };
+    // Verify-only mode: issuance is disabled; an external IdP mints capabilities.
+    let issuer_sk = s.issuer_sk.as_ref().ok_or_else(|| {
+        ApiError(InvarError::Unauthorized(
+            "token issuance disabled (verify-only mode); mint capabilities at the external IdP"
+                .into(),
+        ))
+    })?;
     let nonce = format!("{}:{}", now_unix(), req.subject);
     let cap = invar_core::capability::Capability::new(
         AccountId::new(req.subject),
@@ -409,8 +474,7 @@ async fn issue_token(
         not_after,
         nonce,
     );
-    let signed =
-        invar_core::capability::issue(s.svc.crypto(), &s.issuer_sk, cap).map_err(ApiError)?;
+    let signed = invar_core::capability::issue(s.svc.crypto(), issuer_sk, cap).map_err(ApiError)?;
     // Compact token: hex(capability-json) "." hex(signature). Avoids serializing the
     // 3309-byte ML-DSA signature as a JSON number array (which bloated the header).
     let cap_json = serde_json::to_vec(&signed.capability)

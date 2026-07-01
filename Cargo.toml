@@ -6,6 +6,7 @@ members = [
     "crates/invar-core",
     "crates/invar-crypto",
     "crates/invar-ledger-custodial",
+    "crates/invar-ledger-sqlite",
     "crates/invar-backend",
 ]
 
@@ -39,10 +40,14 @@ axum = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
 tower = "0.5"
 
+# Durable storage
+rusqlite = { version = "0.32", features = ["bundled"] }
+
 # Internal crates
 invar-core = { path = "crates/invar-core" }
 invar-crypto = { path = "crates/invar-crypto" }
 invar-ledger-custodial = { path = "crates/invar-ledger-custodial" }
+invar-ledger-sqlite = { path = "crates/invar-ledger-sqlite" }
 
 [profile.release]
 opt-level = 3

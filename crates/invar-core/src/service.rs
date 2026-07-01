@@ -34,8 +34,9 @@ impl Clock for SystemClock {
 }
 
 /// Governance state (roles, KYC, pause flag) held in the service. In a production
-/// deployment this would also be persisted; kept in-memory here for the scaffold.
-#[derive(Default)]
+/// deployment. It is persisted through the `LedgerPort` (write-through on every
+/// mutation, loaded on startup), so roles/KYC/pause/allowances survive a restart.
+#[derive(Default, serde::Serialize, serde::Deserialize)]
 struct Governance {
     paused: bool,
     deleted: bool,
@@ -89,12 +90,30 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         };
         svc.ledger.register(&admin)?;
         svc.ledger.register(&treasury)?;
+        // Restore persisted governance if the store already has it; otherwise persist
+        // the freshly-bootstrapped governance so it survives the next restart.
+        match svc.ledger.load_governance()? {
+            Some(blob) => {
+                let loaded: Governance = serde_json::from_slice(&blob)
+                    .map_err(|e| InvarError::Serialization(e.to_string()))?;
+                *svc.gov.lock().unwrap() = loaded;
+            }
+            None => {
+                svc.persist_gov(&svc.gov.lock().unwrap())?;
+            }
+        }
         Ok(svc)
     }
 
     /// The system treasury account id.
     pub fn treasury(&self) -> &AccountId {
         &self.treasury
+    }
+
+    /// Write governance through to the durable store.
+    fn persist_gov(&self, gov: &Governance) -> Result<()> {
+        let data = serde_json::to_vec(gov).map_err(|e| InvarError::Serialization(e.to_string()))?;
+        self.ledger.save_governance(&data)
     }
 
     // ---- authorization / compliance helpers ----
@@ -211,6 +230,8 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
                 .unwrap_or(false);
             if !is_admin {
                 Self::consume_allowance(&mut gov, caller, amount)?;
+                // Persist the decremented allowance (governance changed).
+                self.persist_gov(&gov)?;
             }
         }
         acct.balance = acct.balance.checked_add(amount)?;
@@ -324,7 +345,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         let mut gov = self.gov.lock().unwrap();
         self.require_role(&gov, caller, Role::ComplianceOfficer)?;
         gov.kyc.insert(target.clone(), status);
-        Ok(())
+        self.persist_gov(&gov)
     }
 
     pub fn set_frozen(
@@ -377,7 +398,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         let mut gov = self.gov.lock().unwrap();
         self.require_role(&gov, caller, Role::Pauser)?;
         gov.paused = paused;
-        Ok(())
+        self.persist_gov(&gov)
     }
 
     // ---- roles ----
@@ -386,7 +407,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         let mut gov = self.gov.lock().unwrap();
         self.require_role(&gov, caller, Role::Admin)?;
         gov.roles.entry(target.clone()).or_default().grant(role);
-        Ok(())
+        self.persist_gov(&gov)
     }
 
     pub fn revoke_role(&self, caller: &AccountId, target: &AccountId, role: Role) -> Result<()> {
@@ -395,7 +416,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         if let Some(set) = gov.roles.get_mut(target) {
             set.revoke(role);
         }
-        Ok(())
+        self.persist_gov(&gov)
     }
 
     // ---- proof of reserve ----
@@ -566,7 +587,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         let mut gov = self.gov.lock().unwrap();
         self.require_any_role(&gov, caller, &[Role::Admin, Role::Deleter])?;
         gov.metadata = metadata;
-        Ok(())
+        self.persist_gov(&gov)
     }
 
     /// Permanently decommission the token. All state-changing operations are
@@ -579,6 +600,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
                 return Err(InvarError::TokenDeleted);
             }
             gov.deleted = true;
+            self.persist_gov(&gov)?;
         }
         let entry = self.make_entry(EntryKind::Delete, None, None, Amount::ZERO);
         self.ledger.append_entry(&entry)?;
@@ -597,7 +619,7 @@ impl<L: LedgerPort, C: CryptoProvider> StablecoinService<L, C> {
         let mut gov = self.gov.lock().unwrap();
         self.require_any_role(&gov, caller, &[Role::Admin, Role::SupplyAdmin])?;
         gov.allowances.insert(minter.clone(), allowance);
-        Ok(())
+        self.persist_gov(&gov)
     }
 
     pub fn allowance_of(&self, minter: &AccountId) -> Option<Allowance> {

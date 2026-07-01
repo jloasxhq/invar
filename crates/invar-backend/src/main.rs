@@ -60,7 +60,9 @@ async fn main() {
         );
     }
 
-    let state = AppState::with_caps(
+    // Ledger backend from the environment: INVAR_DB_PATH → durable SQLite (persists
+    // balances, reserve, holds, and governance across restarts); else in-memory.
+    let state = AppState::from_env(
         TokenConfig::new(name, symbol, decimals),
         admin,
         require_caps,

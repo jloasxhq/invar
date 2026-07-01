@@ -65,6 +65,14 @@ pub trait LedgerPort: Send + Sync {
     fn put_hold(&self, hold: &Hold) -> Result<()>;
     fn get_hold(&self, id: &str) -> Result<Hold>;
     fn holds(&self) -> Result<Vec<Hold>>;
+
+    // ---- governance persistence ----
+    /// Load the persisted governance blob (roles, KYC, pause/delete flags,
+    /// metadata, supply allowances), if any. Returns `None` on a fresh store.
+    fn load_governance(&self) -> Result<Option<Vec<u8>>>;
+    /// Persist the governance blob (write-through on every governance mutation),
+    /// so roles/KYC/allowances survive a restart.
+    fn save_governance(&self, data: &[u8]) -> Result<()>;
 }
 
 /// Allow a `LedgerPort` to be shared behind an `Arc` (e.g. as axum state) while
@@ -108,5 +116,11 @@ impl<T: LedgerPort + ?Sized> LedgerPort for std::sync::Arc<T> {
     }
     fn holds(&self) -> Result<Vec<Hold>> {
         (**self).holds()
+    }
+    fn load_governance(&self) -> Result<Option<Vec<u8>>> {
+        (**self).load_governance()
+    }
+    fn save_governance(&self, data: &[u8]) -> Result<()> {
+        (**self).save_governance(data)
     }
 }

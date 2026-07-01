@@ -29,3 +29,9 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Durable DB artifacts
+*.db
+*.db-wal
+*.db-shm
+.smoke-db/

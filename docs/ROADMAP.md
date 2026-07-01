@@ -23,7 +23,15 @@ Status legend: ✅ done · 🔨 partial · ⬜ planned
 - ✅ **Argon2id-sealed software keystore** (Phase-0 key custody).
 
 **Adapters & surfaces**
-- ✅ Custodial ledger adapter with **file-backed persistence** + integrity check.
+- ✅ **Durable SQLite ledger** (`invar-ledger-sqlite`): ACID writes (WAL),
+  append-only entry log, and **persisted balances/reserve/holds/governance that
+  survive a restart** (selected via `INVAR_DB_PATH`).
+- ✅ **Persistent governance**: roles/KYC/pause/allowances are written through the
+  `LedgerPort` on every mutation and reloaded on startup (no longer in-memory-only).
+- ✅ **Verify-only issuer mode**: `INVAR_ISSUER_PUBKEY` pins an external IdP's key and
+  disables in-process token issuance.
+- ✅ In-memory custodial ledger adapter with JSON snapshot + integrity check
+  (reference/dev backend).
 - ✅ **HTTPS-only** backend (rustls); **zero-trust** (capability tokens required by
   default).
 - ✅ **Hybrid post-quantum TLS** (`X25519MLKEM768`) via the `pqc-tls` feature;
@@ -35,14 +43,14 @@ Status legend: ✅ done · 🔨 partial · ⬜ planned
   containerization; **built and verified on Portainer** (hybrid PQC TLS negotiated,
   zero-trust enforced).
 
-## Near-term (remaining)
+## Near-term (remaining hardening)
 
-- ⬜ **DB-backed persistence**: replace the file snapshot with a database
-  (append-only entries + balances); persist governance (roles/KYC/pause), which is
-  still in process memory.
-- ⬜ **External capability issuer**: `/auth/token` is a dev issuance stub; production
-  issues capabilities from an external IdP holding the pinned ML-DSA-65 issuer key
-  (the backend already only *verifies*).
+- ⬜ **Transactional multi-step ops**: wrap a domain operation's writes (e.g. mint =
+  balance + supply + entry) in a single DB transaction for cross-op atomicity. Today
+  each write is individually ACID/durable.
+- ⬜ **Encryption at rest** for the SQLite DB; **backups / HA** (SQLite is single-node).
+- ⬜ **Token replay cache** (jti/nonce) and optional **request-binding** of tokens.
+- ⬜ **Rate limiting / request-size / connection caps** (edge or middleware).
 - ⬜ **Live PKCS#11 HSM driver**: the `CryptoProvider` seam is done; the concrete
   driver needs an HSM/SoftHSM to test (see `docs/FIPS-PQC.md`).
 

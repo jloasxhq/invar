@@ -1,0 +1,17 @@
+[package]
+name = "invar-ledger-sqlite"
+description = "Durable SQLite-backed LedgerPort for Invar: ACID writes (WAL), append-only entry log, and persisted balances/reserve/holds/governance that survive a restart."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+invar-core.workspace = true
+serde_json.workspace = true
+rusqlite.workspace = true
+
+[dev-dependencies]
+invar-crypto.workspace = true

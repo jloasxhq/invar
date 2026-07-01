@@ -52,6 +52,7 @@ mod tests {
         reserve: Amount,
         entries: Vec<LedgerEntry>,
         holds: HashMap<String, crate::hold::Hold>,
+        governance: Option<Vec<u8>>,
     }
 
     #[derive(Default)]
@@ -127,6 +128,13 @@ mod tests {
         }
         fn holds(&self) -> Result<Vec<crate::hold::Hold>> {
             Ok(self.0.lock().unwrap().holds.values().cloned().collect())
+        }
+        fn load_governance(&self) -> Result<Option<Vec<u8>>> {
+            Ok(self.0.lock().unwrap().governance.clone())
+        }
+        fn save_governance(&self, data: &[u8]) -> Result<()> {
+            self.0.lock().unwrap().governance = Some(data.to_vec());
+            Ok(())
         }
     }
 
