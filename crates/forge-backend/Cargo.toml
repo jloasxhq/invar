@@ -27,8 +27,12 @@ tokio.workspace = true
 [features]
 # Default software TLS uses the ring provider (builds everywhere, no cmake).
 default = []
-# `fips` selects the CMVP-validated AWS-LC-FIPS provider for TLS (requires cmake +
-# a C toolchain in the build image). See docs/FIPS-PQC.md.
+# `pqc-tls` selects the aws-lc-rs provider, which offers hybrid post-quantum key
+# exchange (X25519MLKEM768) for quantum-safe confidentiality. Requires cmake + a
+# C toolchain in the build image.
+pqc-tls = ["rustls/aws_lc_rs"]
+# `fips` selects the CMVP-validated AWS-LC-FIPS provider for TLS (also aws-lc-rs).
+# See docs/FIPS-PQC.md.
 fips = ["rustls/fips"]
 
 [dev-dependencies]

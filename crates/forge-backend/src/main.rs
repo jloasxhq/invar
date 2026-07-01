@@ -15,13 +15,28 @@ fn env_or(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_string())
 }
 
-#[tokio::main]
-async fn main() {
-    // Install the process-wide rustls crypto provider. The `fips` feature swaps ring
-    // for the AWS-LC-FIPS (CMVP) module at compile time.
+/// Install the process-wide rustls crypto provider. With `pqc-tls` or `fips` this is
+/// aws-lc-rs, whose default key-exchange groups include the hybrid post-quantum
+/// `X25519MLKEM768`; otherwise it is ring (classical, builds without cmake).
+#[cfg(any(feature = "pqc-tls", feature = "fips"))]
+fn install_crypto_provider() -> &'static str {
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .expect("install aws-lc-rs provider");
+    "aws-lc-rs (hybrid X25519MLKEM768 available)"
+}
+
+#[cfg(not(any(feature = "pqc-tls", feature = "fips")))]
+fn install_crypto_provider() -> &'static str {
     rustls::crypto::ring::default_provider()
         .install_default()
-        .expect("install rustls crypto provider");
+        .expect("install ring provider");
+    "ring (classical)"
+}
+
+#[tokio::main]
+async fn main() {
+    let tls_provider = install_crypto_provider();
 
     let bind: SocketAddr = env_or("FORGE_BIND", "0.0.0.0:8443")
         .parse()
@@ -57,7 +72,9 @@ async fn main() {
         .await
         .unwrap_or_else(|e| panic!("load TLS cert/key ({cert}, {key}): {e}"));
 
-    println!("forge-backend HTTPS on https://{bind} (require_caps={require_caps})");
+    println!(
+        "forge-backend HTTPS on https://{bind} (require_caps={require_caps}, tls={tls_provider})"
+    );
     axum_server::bind_rustls(bind, tls)
         .serve(app.into_make_service())
         .await

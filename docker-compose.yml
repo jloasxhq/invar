@@ -3,7 +3,11 @@
 # Portainer: deploy as a Stack (build from repo, or use a prebuilt image).
 services:
   forge-backend:
-    build: .
+    build:
+      context: .
+      args:
+        # Hybrid post-quantum TLS (X25519MLKEM768). Set to "" for classical ring TLS.
+        CARGO_FEATURES: "pqc-tls"
     image: stablecoin-forge:0.1.0
     container_name: stablecoin-forge
     ports:

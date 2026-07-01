@@ -2,14 +2,22 @@
 
 # ---- build stage ----
 FROM rust:1-slim-bookworm AS builder
+# CARGO_FEATURES="pqc-tls" builds hybrid post-quantum TLS (X25519MLKEM768) via
+# aws-lc-rs, which needs a C toolchain + cmake + Go + perl to compile AWS-LC.
+ARG CARGO_FEATURES=""
 WORKDIR /build
+
+RUN if [ -n "$CARGO_FEATURES" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends \
+        cmake clang perl golang-go && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Copy only what the Rust build needs (Go/web/docs excluded via .dockerignore).
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 COPY conformance ./conformance
 
-RUN cargo build --release -p forge-backend
+RUN cargo build --release -p forge-backend ${CARGO_FEATURES:+--features "$CARGO_FEATURES"}
 
 # ---- runtime stage ----
 FROM debian:bookworm-slim
