@@ -1,3 +1,3 @@
-module github.com/invar-mint/invar/go
+module github.com/jloasxhq/invar/go
 
 go 1.24

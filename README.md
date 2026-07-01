@@ -128,7 +128,7 @@ composition ("glue") is asserted byte-for-byte in **both** Rust and Go against a
 
 ### Quick setup
 ```bash
-git clone https://github.com/invar-mint/invar
+git clone https://github.com/jloasxhq/invar
 cd invar
 cargo build                 # Rust workspace
 (cd go && go build ./...)   # Go module
@@ -178,7 +178,7 @@ cd go && go vet ./...
 
 ## Support
 
-Open a [GitHub issue](https://github.com/invar-mint/invar/issues) for
+Open a [GitHub issue](https://github.com/jloasxhq/invar/issues) for
 questions, bugs, or feature requests. For security reports, follow
 [`SECURITY.md`](SECURITY.md) (do not open a public issue).
 
