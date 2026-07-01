@@ -9,6 +9,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,7 +21,9 @@ import (
 
 const usage = `forge-cli — stablecoin-forge operator client
 
-usage: forge-cli [-url BASE] <command> [args]
+usage: forge-cli [-url BASE] [-insecure] <command> [args]
+  -url BASE    API base (default https://127.0.0.1:8443)
+  -insecure    skip TLS certificate verification (dev/self-signed only)
 
 commands:
   token                          show token config, supply, reserve
@@ -255,7 +258,7 @@ func buildRequest(base string, args []string) (method, url string, body []byte, 
 	}
 }
 
-func run(base string, args []string, out io.Writer) error {
+func run(base string, args []string, out io.Writer, insecure bool) error {
 	method, url, body, err := buildRequest(base, args)
 	if err != nil {
 		return err
@@ -267,7 +270,13 @@ func run(base string, args []string, out io.Writer) error {
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := http.DefaultClient.Do(req)
+	client := http.DefaultClient
+	if insecure {
+		client = &http.Client{Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}}
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -281,17 +290,29 @@ func run(base string, args []string, out io.Writer) error {
 }
 
 func main() {
-	base := "http://127.0.0.1:8080"
+	base := "https://127.0.0.1:8443"
+	insecure := false
 	args := os.Args[1:]
-	if len(args) >= 2 && args[0] == "-url" {
-		base = args[1]
-		args = args[2:]
+	parsing := true
+	for parsing && len(args) > 0 {
+		switch args[0] {
+		case "-url":
+			if len(args) < 2 {
+				fmt.Fprintln(os.Stderr, "-url needs a value")
+				os.Exit(1)
+			}
+			base, args = args[1], args[2:]
+		case "-insecure", "-k":
+			insecure, args = true, args[1:]
+		default:
+			parsing = false
+		}
 	}
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
 		fmt.Print(usage)
 		return
 	}
-	if err := run(base, args, os.Stdout); err != nil {
+	if err := run(base, args, os.Stdout, insecure); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}

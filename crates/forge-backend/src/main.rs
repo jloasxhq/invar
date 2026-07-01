@@ -1,8 +1,13 @@
-//! forge-backend server entrypoint. Configured entirely via environment variables
-//! (see `.env.example`). For the transport boundary, run the Go build under
-//! `GODEBUG=fips140=on` and terminate PQC-hybrid TLS in front of this service; see
-//! `docs/FIPS-PQC.md`.
+//! forge-backend server entrypoint. **HTTPS only** (plaintext HTTP is not
+//! supported) and **zero-trust by default** (capability tokens required). Configured
+//! via environment variables; see `.env.example`.
+//!
+//! TLS uses rustls with the ring provider by default; building with `--features fips`
+//! selects the CMVP-validated AWS-LC-FIPS provider (see `docs/FIPS-PQC.md`).
 
+use std::net::SocketAddr;
+
+use axum_server::tls_rustls::RustlsConfig;
 use forge_backend::{router, AppState};
 use forge_core::TokenConfig;
 
@@ -10,21 +15,35 @@ fn env_or(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_string())
 }
 
-fn env_bool(key: &str) -> bool {
-    matches!(
-        env_or(key, "false").to_ascii_lowercase().as_str(),
-        "1" | "true" | "yes" | "on"
-    )
-}
-
 #[tokio::main]
 async fn main() {
-    let bind = env_or("FORGE_BIND", "127.0.0.1:8080");
+    // Install the process-wide rustls crypto provider. The `fips` feature swaps ring
+    // for the AWS-LC-FIPS (CMVP) module at compile time.
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("install rustls crypto provider");
+
+    let bind: SocketAddr = env_or("FORGE_BIND", "0.0.0.0:8443")
+        .parse()
+        .expect("FORGE_BIND must be host:port");
     let admin = env_or("FORGE_ADMIN", "issuer");
     let name = env_or("FORGE_TOKEN_NAME", "Generic USD");
     let symbol = env_or("FORGE_TOKEN_SYMBOL", "gUSD");
     let decimals: u8 = env_or("FORGE_TOKEN_DECIMALS", "2").parse().unwrap_or(2);
-    let require_caps = env_bool("FORGE_REQUIRE_CAPS");
+
+    // Zero-trust: capability tokens are REQUIRED by default. Opt out only for local
+    // development by explicitly setting FORGE_REQUIRE_CAPS=false.
+    let require_caps = env_or("FORGE_REQUIRE_CAPS", "true") != "false";
+
+    // HTTPS only — no plaintext fallback.
+    let cert = env_or("FORGE_TLS_CERT", "");
+    let key = env_or("FORGE_TLS_KEY", "");
+    if cert.is_empty() || key.is_empty() {
+        panic!(
+            "HTTPS-only: set FORGE_TLS_CERT and FORGE_TLS_KEY to PEM file paths. \
+             Plaintext HTTP is not supported."
+        );
+    }
 
     let state = AppState::with_caps(
         TokenConfig::new(name, symbol, decimals),
@@ -34,9 +53,13 @@ async fn main() {
     .expect("init state");
     let app = router(state);
 
-    let listener = tokio::net::TcpListener::bind(&bind)
+    let tls = RustlsConfig::from_pem_file(&cert, &key)
         .await
-        .unwrap_or_else(|e| panic!("bind {bind}: {e}"));
-    println!("forge-backend listening on http://{bind} (require_caps={require_caps})");
-    axum::serve(listener, app).await.expect("server");
+        .unwrap_or_else(|e| panic!("load TLS cert/key ({cert}, {key}): {e}"));
+
+    println!("forge-backend HTTPS on https://{bind} (require_caps={require_caps})");
+    axum_server::bind_rustls(bind, tls)
+        .serve(app.into_make_service())
+        .await
+        .expect("server");
 }

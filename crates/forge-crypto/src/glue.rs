@@ -64,3 +64,24 @@ pub fn aes256gcm_open(key: &[u8], nonce: &[u8], aad: &[u8], ct_tag: &[u8]) -> Re
         .decrypt(Nonce::from_slice(nonce), Payload { msg: ct_tag, aad })
         .map_err(|e| ForgeError::Crypto(format!("aes-gcm open: {e}")))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn aead_bad_key_or_nonce_length_errors() {
+        assert!(aes256gcm_seal(&[0u8; 16], &[0u8; 12], b"", b"x").is_err()); // key too short
+        assert!(aes256gcm_seal(&[0u8; 32], &[0u8; 8], b"", b"x").is_err()); // nonce wrong
+    }
+
+    #[test]
+    fn aead_open_rejects_tampered_ciphertext() {
+        let key = [7u8; 32];
+        let nonce = [3u8; 12];
+        let mut sealed = aes256gcm_seal(&key, &nonce, b"", b"secret").unwrap();
+        let last = sealed.len() - 1;
+        sealed[last] ^= 0xff; // corrupt the tag
+        assert!(aes256gcm_open(&key, &nonce, b"", &sealed).is_err());
+    }
+}

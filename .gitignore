@@ -20,6 +20,8 @@ web/build/
 *.p12
 keystore/
 *.kek
+.certs/
+.smoke-certs/
 
 # OS / editor
 .DS_Store

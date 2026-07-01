@@ -20,7 +20,16 @@ serde.workspace = true
 serde_json.workspace = true
 hex.workspace = true
 axum.workspace = true
+axum-server = { version = "0.7", default-features = false, features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 tokio.workspace = true
+
+[features]
+# Default software TLS uses the ring provider (builds everywhere, no cmake).
+default = []
+# `fips` selects the CMVP-validated AWS-LC-FIPS provider for TLS (requires cmake +
+# a C toolchain in the build image). See docs/FIPS-PQC.md.
+fips = ["rustls/fips"]
 
 [dev-dependencies]
 tower.workspace = true

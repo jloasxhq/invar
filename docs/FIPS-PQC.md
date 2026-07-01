@@ -60,6 +60,61 @@ cargo test
 cd go && GODEBUG=fips140=on go test ./...
 ```
 
+## Transport security (HTTPS-only, zero-trust)
+
+The backend is **HTTPS-only** — there is no plaintext listener, and it refuses to
+start without a certificate (`FORGE_TLS_CERT`/`FORGE_TLS_KEY`). It is **zero-trust by
+default**: privileged endpoints require a valid **ML-DSA-65 capability token**
+(`FORGE_REQUIRE_CAPS=true`), so there is no ambient trusted caller.
+
+TLS provider is selectable at build time:
+
+| Build | TLS crypto provider | CMVP status |
+|---|---|---|
+| default (`cargo build`) | rustls + **ring** | not CMVP; builds everywhere |
+| `cargo build --features fips` | rustls + **AWS-LC-FIPS** | **CMVP-validated** software module |
+
+So the "CMVP framework on the software-only side" is a build flag: `--features fips`
+compiles the TLS stack against the AWS-LC FIPS module (requires `cmake` + a C
+toolchain in the build image). The Go components independently use the Go
+Cryptographic Module (CMVP #5247) under `GODEBUG=fips140=on`.
+
+## HSM interoperability (add your own hardware module)
+
+The **`CryptoProvider` port is the HSM drop-in seam.** Signing (attestations,
+multisig, capability issuance) goes through this trait, so an operator adds an HSM by
+implementing it against a PKCS#11 token — no domain/backend changes:
+
+```rust
+// Sketch — a PKCS#11-backed provider (e.g. via the `cryptoki` crate).
+struct Pkcs11Provider { session: /* cryptoki session */, key_label: String }
+
+impl forge_core::crypto::CryptoProvider for Pkcs11Provider {
+    fn signature_algorithm(&self) -> &'static str { "ML-DSA-65" } // or HSM's alg
+    fn sign(&self, _sk: &SigningKey, msg: &[u8]) -> Result<Signature> {
+        // C_Sign against the non-extractable key in the HSM slot
+    }
+    fn verify(&self, vk: &VerifyingKey, msg: &[u8], sig: &Signature) -> bool { /* ... */ }
+    // canonical_json / fingerprint reuse forge-crypto::glue
+    fn generate_keypair(&self) -> Result<(VerifyingKey, SigningKey)> {
+        // C_GenerateKeyPair with CKA_EXTRACTABLE=false
+    }
+}
+```
+
+Custody path:
+
+- **Phase 0 (now):** software keys sealed at rest with the Argon2id keystore
+  (`forge-crypto::keystore`); no plaintext key on disk.
+- **Phase 1 (HSM acquired):** swap in the PKCS#11 provider; keys are **generated
+  inside the HSM (non-extractable)** — a re-key ceremony, not a code change. Until an
+  HSM ships PQC firmware, the HSM holds the classical/wrapping keys while ML-DSA stays
+  in the software provider (hybrid custody).
+
+> The live PKCS#11 driver is intentionally **not** vendored here: it cannot be
+> tested without an HSM/SoftHSM, and this project ships only code exercised in-repo.
+> The trait above is the whole integration surface.
+
 ## What this is NOT
 
 - Not audited. Not penetration-tested. Not a validated ML-DSA module.

@@ -10,17 +10,18 @@ cd "$(dirname "$0")/.."
 
 command -v go >/dev/null 2>&1 || export PATH="/c/Program Files/Go/bin:$PATH"
 
-PORT="${SMOKE_PORT:-8137}"
-CAPS_PORT="${SMOKE_CAPS_PORT:-8138}"
-BASE="http://127.0.0.1:${PORT}"
-CAPS_BASE="http://127.0.0.1:${CAPS_PORT}"
+PORT="${SMOKE_PORT:-8443}"
+CAPS_PORT="${SMOKE_CAPS_PORT:-8444}"
+BASE="https://127.0.0.1:${PORT}"
+CAPS_BASE="https://127.0.0.1:${CAPS_PORT}"
 BODYFILE="$(mktemp)"
+CERTDIR=".smoke-certs"
 PASS=0; FAIL=0
 GREEN='\033[32m'; RED='\033[31m'; DIM='\033[2m'; NC='\033[0m'
 
 req() { # METHOD PATH [BODY] [TOKEN] ; sets HTTP + reads body into BODYFILE
   local method="$1" url="$2" body="${3:-}" token="${4:-}"
-  local args=(-s -o "$BODYFILE" -w "%{http_code}" -X "$method" "$url")
+  local args=(-sk -o "$BODYFILE" -w "%{http_code}" -X "$method" "$url")
   [ -n "$body" ] && args+=(-H "content-type: application/json" -d "$body")
   [ -n "$token" ] && args+=(-H "x-forge-capability: $token")
   HTTP="$(curl "${args[@]}")"
@@ -39,14 +40,20 @@ echo "==> Building forge-backend + Go CLI"
 cargo build --release -p forge-backend >/dev/null 2>&1 || { echo "cargo build failed"; exit 1; }
 BIN="target/release/forge-backend"; [ -f "${BIN}.exe" ] && BIN="${BIN}.exe"
 
+echo "==> Generating throwaway self-signed TLS cert"
+mkdir -p "$CERTDIR"
+MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -keyout "$CERTDIR/key.pem" -out "$CERTDIR/cert.pem" \
+  -days 1 -nodes -subj "/CN=localhost" >/dev/null 2>&1 || { echo "openssl cert gen failed"; exit 1; }
+export FORGE_TLS_CERT="$CERTDIR/cert.pem" FORGE_TLS_KEY="$CERTDIR/key.pem"
+
 PIDS=()
-cleanup() { for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; rm -f "$BODYFILE"; }
+cleanup() { for p in "${PIDS[@]:-}"; do kill "$p" 2>/dev/null || true; done; rm -f "$BODYFILE"; rm -rf "$CERTDIR"; }
 trap cleanup EXIT
 
-echo "==> Starting backend (dev mode) on :${PORT}"
-FORGE_BIND="127.0.0.1:${PORT}" FORGE_ADMIN="issuer" "./$BIN" >/dev/null 2>&1 &
+echo "==> Starting backend (HTTPS, dev caps-off) on :${PORT}"
+FORGE_BIND="127.0.0.1:${PORT}" FORGE_ADMIN="issuer" FORGE_REQUIRE_CAPS=false "./$BIN" >/dev/null 2>&1 &
 PIDS+=($!)
-curl --retry-connrefused --retry 30 --retry-delay 1 -sf "$BASE/health" >/dev/null || { echo "backend did not become healthy"; exit 1; }
+curl --retry-connrefused --retry 30 --retry-delay 1 -sfk "$BASE/health" >/dev/null || { echo "backend did not become healthy"; exit 1; }
 
 echo ""
 echo "== Health & token =="
@@ -136,11 +143,11 @@ if command -v go >/dev/null 2>&1; then
   CLIBIN="forge-cli${EXT}"
   # Build to the project dir (go run's cache exe can be blocked by host policy).
   if (cd go && go build -o "$CLIBIN" ./cli 2>/dev/null); then
-    if (cd go && "./$CLIBIN" -url "$BASE" token 2>/dev/null | grep -q "gUSD"); then
-      PASS=$((PASS+1)); printf "  ${GREEN}PASS${NC} %-52s\n" "CLI 'token' returns gUSD"
+    if (cd go && "./$CLIBIN" -url "$BASE" -insecure token 2>/dev/null | grep -q "gUSD"); then
+      PASS=$((PASS+1)); printf "  ${GREEN}PASS${NC} %-52s\n" "CLI (HTTPS) 'token' returns gUSD"
     else FAIL=$((FAIL+1)); printf "  ${RED}FAIL${NC} %-52s\n" "CLI 'token'"; fi
-    if (cd go && "./$CLIBIN" -url "$BASE" account acme >/dev/null 2>&1); then
-      PASS=$((PASS+1)); printf "  ${GREEN}PASS${NC} %-52s\n" "CLI 'account acme' ok"
+    if (cd go && "./$CLIBIN" -url "$BASE" -insecure account acme >/dev/null 2>&1); then
+      PASS=$((PASS+1)); printf "  ${GREEN}PASS${NC} %-52s\n" "CLI (HTTPS) 'account acme' ok"
     else FAIL=$((FAIL+1)); printf "  ${RED}FAIL${NC} %-52s\n" "CLI 'account acme'"; fi
     rm -f "go/$CLIBIN"
   else
@@ -155,10 +162,10 @@ req POST "$BASE/token/delete";                                     check "POST /
 req POST "$BASE/mint" '{"to":"acme","amount":1}';                  check "mint blocked after delete -> 409" 409
 
 echo ""
-echo "== Capability ENFORCEMENT (second instance, FORGE_REQUIRE_CAPS=true) on :${CAPS_PORT} =="
+echo "== Capability ENFORCEMENT (second HTTPS instance, FORGE_REQUIRE_CAPS=true) on :${CAPS_PORT} =="
 FORGE_BIND="127.0.0.1:${CAPS_PORT}" FORGE_ADMIN="issuer" FORGE_REQUIRE_CAPS=true "./$BIN" >/dev/null 2>&1 &
 PIDS+=($!)
-curl --retry-connrefused --retry 30 --retry-delay 1 -sf "$CAPS_BASE/health" >/dev/null || { echo "caps backend unhealthy"; }
+curl --retry-connrefused --retry 30 --retry-delay 1 -sfk "$CAPS_BASE/health" >/dev/null || { echo "caps backend unhealthy"; }
 req POST "$CAPS_BASE/mint" '{"to":"acme","amount":1}';             check "mint WITHOUT token -> 403" 403
 req POST "$CAPS_BASE/auth/token" '{"subject":"issuer","scopes":["*"],"ttl_secs":300}'; check "issue admin token" 200
 CT="$(jfield token)"

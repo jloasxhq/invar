@@ -606,4 +606,136 @@ mod tests {
         // Wildcard grants any scope; not_after 0 = non-expiring.
         assert!(verify_scope(&crypto, &vk, &signed, 9_999_999_999, "anything").is_ok());
     }
+
+    /// Exercise EVERY multisig OperationRequest arm through the controller so no
+    /// privileged apply() path is untested.
+    #[test]
+    fn multisig_covers_all_operation_types() {
+        use crate::multisig::{MultisigController, MultisigPolicy, OperationRequest};
+
+        let admin = AccountId::new("admin");
+        let svc = std::sync::Arc::new(
+            StablecoinService::with_clock(
+                TokenConfig::new("Test USD", "TUSD", 2),
+                MockLedger::default(),
+                MockCrypto,
+                admin.clone(),
+                Arc::new(FixedClock(1_700_000_000)),
+            )
+            .unwrap(),
+        );
+        let alice = AccountId::new("alice");
+        svc.register_account(&admin, &alice).unwrap();
+        svc.set_kyc(&admin, &alice, KycStatus::Verified).unwrap();
+        svc.set_reserve(&admin, Amount::new(100_000)).unwrap();
+
+        let exec = AccountId::new("exec");
+        for r in [
+            Role::Admin,
+            Role::Minter,
+            Role::Burner,
+            Role::Wiper,
+            Role::Pauser,
+            Role::ReserveAttestor,
+            Role::Rescuer,
+        ] {
+            svc.grant_role(&admin, &exec, r).unwrap();
+        }
+
+        let (vk1, sk1) = signer(1);
+        let (vk2, sk2) = signer(2);
+        let ctrl = MultisigController::new(
+            svc.clone(),
+            exec,
+            MultisigPolicy::new(2, vec![vk1.clone(), vk2.clone()]),
+        );
+        let run = |req: OperationRequest| {
+            let op = ctrl.propose(req).unwrap();
+            let pre = ctrl.preimage_for(&op.id).unwrap();
+            ctrl.approve(&op.id, &vk1, &MockCrypto.sign(&sk1, &pre).unwrap())
+                .unwrap();
+            ctrl.approve(&op.id, &vk2, &MockCrypto.sign(&sk2, &pre).unwrap())
+                .unwrap();
+            ctrl.execute(&op.id).unwrap();
+        };
+
+        // Mint -> SetReserve -> Burn -> GrantRole -> Pause(on/off) -> Rescue -> Wipe
+        run(OperationRequest::Mint {
+            to: alice.clone(),
+            amount: Amount::new(1000),
+        });
+        assert_eq!(svc.balance_of(&alice).unwrap(), Amount::new(1000));
+
+        run(OperationRequest::SetReserve {
+            amount: Amount::new(200_000),
+        });
+        assert_eq!(svc.attested_reserve().unwrap(), Amount::new(200_000));
+
+        run(OperationRequest::Burn {
+            from: alice.clone(),
+            amount: Amount::new(200),
+        });
+        assert_eq!(svc.balance_of(&alice).unwrap(), Amount::new(800));
+
+        run(OperationRequest::GrantRole {
+            target: alice.clone(),
+            role: Role::Pauser,
+        });
+
+        run(OperationRequest::Pause { paused: true });
+        assert!(svc.is_paused());
+        run(OperationRequest::Pause { paused: false });
+
+        // Fund treasury (misdirect) then rescue via multisig.
+        let treasury = AccountId::new(crate::TREASURY_ID);
+        svc.transfer(&alice, &alice, &treasury, Amount::new(100))
+            .unwrap();
+        run(OperationRequest::Rescue {
+            to: alice.clone(),
+            amount: Amount::new(100),
+        });
+        assert_eq!(svc.balance_of(&alice).unwrap(), Amount::new(800));
+
+        // Freeze then wipe via multisig.
+        svc.set_frozen(&admin, &alice, true).unwrap();
+        run(OperationRequest::Wipe {
+            target: alice.clone(),
+        });
+        assert_eq!(svc.balance_of(&alice).unwrap(), Amount::ZERO);
+    }
+
+    #[test]
+    fn allowance_unlimited_permits_minting() {
+        use crate::Allowance;
+        let (svc, admin) = setup();
+        let sup = onboard(&svc, &admin, "sup");
+        svc.grant_role(&admin, &sup, Role::Minter).unwrap();
+        svc.set_supply_allowance(&admin, &sup, Allowance::Unlimited)
+            .unwrap();
+        svc.set_reserve(&admin, Amount::new(10_000)).unwrap();
+        // Unlimited allowance: repeated mints succeed with no decrement.
+        svc.mint(&sup, &sup, Amount::new(3000)).unwrap();
+        svc.mint(&sup, &sup, Amount::new(3000)).unwrap();
+        assert_eq!(svc.balance_of(&sup).unwrap(), Amount::new(6000));
+        assert_eq!(svc.allowance_of(&sup), Some(Allowance::Unlimited));
+    }
+
+    #[test]
+    fn execute_hold_with_target_and_no_beneficiary() {
+        let (svc, admin) = setup();
+        let alice = funded(&svc, &admin, "alice", 1000);
+        let bob = onboard(&svc, &admin, "bob");
+        // Hold with NO fixed beneficiary; executor supplies the target.
+        let hold = svc
+            .create_hold(&alice, &alice, Amount::new(250), None, 0)
+            .unwrap();
+        svc.execute_hold(&admin, &hold.id, Some(bob.clone()))
+            .unwrap();
+        assert_eq!(svc.balance_of(&bob).unwrap(), Amount::new(250));
+        // Executing a hold with neither beneficiary nor target is an error.
+        let h2 = svc
+            .create_hold(&alice, &alice, Amount::new(10), None, 0)
+            .unwrap();
+        assert!(svc.execute_hold(&admin, &h2.id, None).is_err());
+    }
 }

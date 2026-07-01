@@ -90,4 +90,20 @@ mod tests {
         let sig = p.sign(&sk, b"x").unwrap();
         assert_eq!(sig.0.len(), ml_dsa_65::SIG_LEN);
     }
+
+    #[test]
+    fn malformed_inputs_are_rejected_not_panicked() {
+        let p = FipsPqcProvider::new();
+        // Wrong-length secret key -> sign errors.
+        assert!(p.sign(&SigningKey(vec![0u8; 10]), b"m").is_err());
+        // Wrong-length verifying key or signature -> verify returns false.
+        let (_vk, sk) = p.generate_keypair().unwrap();
+        let sig = p.sign(&sk, b"m").unwrap();
+        assert!(!p.verify(&VerifyingKey(vec![1, 2, 3]), b"m", &sig));
+        assert!(!p.verify(
+            &VerifyingKey(vec![0u8; ml_dsa_65::PK_LEN]),
+            b"m",
+            &Signature(vec![9, 9])
+        ));
+    }
 }

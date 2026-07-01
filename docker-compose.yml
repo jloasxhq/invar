@@ -1,4 +1,4 @@
-# stablecoin-forge — backend service.
+# stablecoin-forge — backend service (HTTPS-only, zero-trust by default).
 # Local:   docker compose up --build
 # Portainer: deploy as a Stack (build from repo, or use a prebuilt image).
 services:
@@ -7,15 +7,21 @@ services:
     image: stablecoin-forge:0.1.0
     container_name: stablecoin-forge
     ports:
-      - "8080:8080"
+      - "8443:8443"
     environment:
-      FORGE_BIND: "0.0.0.0:8080"
+      FORGE_BIND: "0.0.0.0:8443"
       FORGE_ADMIN: "issuer"
-      # Set to require capability tokens on privileged endpoints in production:
-      # FORGE_REQUIRE_CAPS: "true"
+      # Zero-trust: privileged endpoints require a capability token. Only set false
+      # for local development.
+      FORGE_REQUIRE_CAPS: "true"
+      # Provide real TLS certs in production by mounting them and setting these:
+      # FORGE_TLS_CERT: "/etc/forge/tls/cert.pem"
+      # FORGE_TLS_KEY: "/etc/forge/tls/key.pem"
+    # volumes:
+    #   - ./certs:/etc/forge/tls:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      test: ["CMD", "curl", "-fsSk", "https://127.0.0.1:8443/health"]
       interval: 30s
       timeout: 3s
       retries: 3
