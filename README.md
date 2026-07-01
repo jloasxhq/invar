@@ -71,6 +71,7 @@ configuration choice (Go crypto module / PKCS#11 HSM) rather than a rewrite.
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — ports & adapters, data flow, crate map.
 - [`docs/FIPS-PQC.md`](docs/FIPS-PQC.md) — exact FIPS/PQC posture and boundaries.
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — build variants, config, and the PQC client / proxy header-size caveats.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — implemented vs planned; the peg guardrail.
 
 ## Architecture
