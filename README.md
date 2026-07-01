@@ -47,6 +47,8 @@ configuration choice (Go crypto module / PKCS#11 HSM) rather than a rewrite.
 - **Argon2id** (RFC 9106) key-encryption-key; Argon2id-sealed software keystore.
 - Cross-language **golden-vector conformance** for canonical-JSON/HKDF-SHA3/AES-GCM/SHA-384.
 - Go components run under the **Go Cryptographic Module (CMVP #5247)** FIPS 140-3 boundary.
+- **HTTPS-only, zero-trust** transport; hybrid post-quantum TLS (**`X25519MLKEM768`**) via
+  the `pqc-tls` build; the `fips` build uses the CMVP-validated AWS-LC-FIPS provider.
 
 ### Multisignature Support
 - **M-of-N** approval for privileged operations, with **ML-DSA-65** signatures verified
