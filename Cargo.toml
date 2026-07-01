@@ -28,7 +28,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 # Cryptography — algorithms standardized by NIST/IETF (see docs/FIPS-PQC.md)
 fips204 = "0.4"          # FIPS 204 ML-DSA (KAT-locked to NIST vectors)
 argon2 = "0.5"           # RFC 9106 Argon2id (KEK derivation policy)
-sha2 = "0.10"            # FIPS 180-4 SHA-2
+sha2 = "0.11"            # FIPS 180-4 SHA-2
 sha3 = "0.10"            # FIPS 202 SHA-3
 hkdf = "0.12"            # RFC 5869 HKDF
 aes-gcm = "0.10"         # NIST SP 800-38D AES-GCM
