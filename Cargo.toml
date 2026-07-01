@@ -31,7 +31,7 @@ argon2 = "0.5"           # RFC 9106 Argon2id (KEK derivation policy)
 sha2 = "0.10"            # FIPS 180-4 SHA-2
 sha3 = "0.10"            # FIPS 202 SHA-3
 hkdf = "0.12"            # RFC 5869 HKDF
-aes-gcm = "0.10"         # NIST SP 800-38D AES-GCM
+aes-gcm = "0.11"         # NIST SP 800-38D AES-GCM
 zeroize = "1"
 
 # Backend
