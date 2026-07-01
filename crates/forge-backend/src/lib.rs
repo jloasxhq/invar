@@ -158,14 +158,23 @@ impl axum::extract::FromRequestParts<AppState> for AuthCaller {
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         if let Some(hv) = parts.headers.get("x-forge-capability") {
-            let hex_str = hv.to_str().map_err(|_| {
+            let token = hv.to_str().map_err(|_| {
                 ApiError(ForgeError::MalformedCapability("non-ascii header".into()))
             })?;
-            let bytes = hex::decode(hex_str)
+            // Compact token: hex(capability-json) "." hex(signature).
+            let (cap_hex, sig_hex) = token.split_once('.').ok_or_else(|| {
+                ApiError(ForgeError::MalformedCapability("expected cap.sig".into()))
+            })?;
+            let cap_bytes = hex::decode(cap_hex)
                 .map_err(|_| ApiError(ForgeError::MalformedCapability("invalid hex".into())))?;
-            let signed: forge_core::capability::SignedCapability =
-                serde_json::from_slice(&bytes)
-                    .map_err(|e| ApiError(ForgeError::MalformedCapability(e.to_string())))?;
+            let capability: forge_core::Capability = serde_json::from_slice(&cap_bytes)
+                .map_err(|e| ApiError(ForgeError::MalformedCapability(e.to_string())))?;
+            let sig_bytes = hex::decode(sig_hex)
+                .map_err(|_| ApiError(ForgeError::MalformedCapability("invalid hex".into())))?;
+            let signed = forge_core::SignedCapability {
+                capability,
+                signature: forge_core::Signature(sig_bytes),
+            };
             let cap = forge_core::capability::verify(
                 state.svc.crypto(),
                 &state.issuer_vk,
@@ -397,9 +406,16 @@ async fn issue_token(
     );
     let signed =
         forge_core::capability::issue(s.svc.crypto(), &s.issuer_sk, cap).map_err(ApiError)?;
-    let json = serde_json::to_vec(&signed)
+    // Compact token: hex(capability-json) "." hex(signature). Avoids serializing the
+    // 3309-byte ML-DSA signature as a JSON number array (which bloated the header).
+    let cap_json = serde_json::to_vec(&signed.capability)
         .map_err(|e| ApiError(ForgeError::Serialization(e.to_string())))?;
-    Ok(Json(serde_json::json!({ "token": hex::encode(json) })))
+    let token = format!(
+        "{}.{}",
+        hex::encode(&cap_json),
+        hex::encode(&signed.signature.0)
+    );
+    Ok(Json(serde_json::json!({ "token": token })))
 }
 
 async fn token(State(s): State<AppState>) -> Result<Json<TokenInfo>, ApiError> {
