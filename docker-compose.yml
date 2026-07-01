@@ -1,0 +1,22 @@
+# stablecoin-forge — backend service.
+# Local:   docker compose up --build
+# Portainer: deploy as a Stack (build from repo, or use a prebuilt image).
+services:
+  forge-backend:
+    build: .
+    image: stablecoin-forge:0.1.0
+    container_name: stablecoin-forge
+    ports:
+      - "8080:8080"
+    environment:
+      FORGE_BIND: "0.0.0.0:8080"
+      FORGE_ADMIN: "issuer"
+      # Set to require capability tokens on privileged endpoints in production:
+      # FORGE_REQUIRE_CAPS: "true"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

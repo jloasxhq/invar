@@ -1,0 +1,9 @@
+# Only the Rust workspace is needed for the backend image.
+/target
+**/target
+/go
+/web
+/docs
+/.git
+/.github
+*.md
