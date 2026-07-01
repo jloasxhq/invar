@@ -1,9 +1,14 @@
 //! # forge-backend
 //!
-//! REST API over the domain service. For the scaffold the service acts with a fixed
-//! administrative caller and holds the reserve-attestor keypair in memory; a
-//! production deployment replaces both with per-request PQC capability tokens
-//! (authn/authz) and an HSM/KMS-held attestor key. See `docs/ROADMAP.md`.
+//! HTTPS REST API over the domain service, **zero-trust by default**: privileged
+//! endpoints require a valid **ML-DSA-65 capability token** (`AuthCaller`), verified
+//! against a pinned issuer key. TLS is mandatory (see `main.rs`); the `pqc-tls` build
+//! adds hybrid post-quantum key exchange.
+//!
+//! Two things remain stubbed for a real deployment (see `docs/ROADMAP.md`): the
+//! `/auth/token` issuer is in-process (production uses an external IdP), and the
+//! reserve-attestor / issuer keys are held in memory (production uses an HSM/KMS via
+//! the `CryptoProvider` seam).
 
 use std::sync::Arc;
 
