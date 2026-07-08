@@ -41,7 +41,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "net"] }
 tower = "0.5"
 
 # Durable storage
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 
 # Internal crates
 invar-core = { path = "crates/invar-core" }
